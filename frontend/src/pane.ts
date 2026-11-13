@@ -141,7 +141,7 @@ export class Pane {
   /** Copies the selection to the Windows clipboard (never the server's). */
   copySelection() {
     if (!this.term) return;
-    const text = cleanSelection(this.term.getSelection(), this.term.cols);
+    const text = selectionText(this.term);
     if (!text) return;
     ClipboardSetText(text).then(ok => {
       if (ok === false) { toast('Gagal menyalin ke clipboard', 'error'); return; }
@@ -273,24 +273,61 @@ export class Pane {
   }
 }
 
+/** One screen row of a selection. */
+export interface SelRow {
+  /** Selected part of the row, including trailing blanks. */
+  full: string;
+  /** True when the next row is a continuation of this one (soft-wrapped). */
+  wrapsToNext: boolean;
+}
+
+const BLANK_END = /[ \t ]+$/;
+
 /**
- * Turns a terminal selection into clean text for the Windows clipboard:
- * - trailing blanks on every line are removed (tmux pads lines with real spaces),
- * - a line that runs all the way to the right edge was wrapped by the screen width,
- *   so it is joined with the next line instead of getting a line break,
- * - line breaks become CRLF, which every Windows application understands.
+ * Builds clipboard text from selected screen rows:
+ * - blanks at the end of every row are dropped (programs and tmux pad rows with spaces),
+ * - rows that only continue because the line was too long for the screen are joined
+ *   back into one line, so sentences flow; if the program padded the row before
+ *   wrapping (it broke at a space), a single space is put between the words,
+ * - real line breaks become CRLF, which Notepad and Word understand.
  */
-export function cleanSelection(sel: string, cols: number): string {
-  if (!sel) return '';
-  const lines = sel.split(/\r?\n/);
+export function joinSelectionRows(rows: SelRow[]): string {
   let out = '';
-  for (let i = 0; i < lines.length; i++) {
-    const raw = lines[i];
-    const wrapped = raw.length >= cols && i < lines.length - 1;
-    out += wrapped ? raw : raw.replace(/[ \t ]+$/, '');
-    if (i < lines.length - 1 && !wrapped) out += '\r\n';
+  for (let i = 0; i < rows.length; i++) {
+    const prev = rows[i - 1];
+    let text = rows[i].full.replace(BLANK_END, '');
+    if (prev) {
+      if (prev.wrapsToNext) {
+        const prevPadded = BLANK_END.test(prev.full);
+        if (prevPadded) {
+          text = text.replace(/^[ \t ]+/, '');
+          if (text && out && !/\s$/.test(out)) out += ' ';
+        }
+      } else {
+        out += '\r\n';
+      }
+    }
+    out += text;
   }
   return out.replace(/(\r\n)+$/, '');
+}
+
+/** Reads the current selection row by row from the terminal buffer. */
+export function selectionText(term: Terminal): string {
+  const pos = term.getSelectionPosition();
+  if (!pos) return '';
+  const buf = term.buffer.active;
+  // xterm reports 0-based columns/rows here (despite its docs saying 1-based).
+  const rows: SelRow[] = [];
+  for (let y = pos.start.y; y <= pos.end.y; y++) {
+    const line = buf.getLine(y);
+    if (!line) continue;
+    const from = y === pos.start.y ? pos.start.x : 0;
+    const to = y === pos.end.y ? pos.end.x : term.cols;
+    const next = y < pos.end.y ? buf.getLine(y + 1) : undefined;
+    rows.push({ full: line.translateToString(false, from, to), wrapsToNext: !!next?.isWrapped });
+  }
+  return joinSelectionRows(rows);
 }
 
 function b64ToBytes(b64: string): Uint8Array {

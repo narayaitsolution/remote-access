@@ -32,7 +32,7 @@ A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a
 ### Terminal that behaves like you expect
 - Based on xterm.js (the terminal used by VS Code) with GPU rendering, 256/true color and full tmux support.
 - **Mouse wheel scrolls tmux history directly** — no Shift needed. (The app enables `mouse on` in your running tmux server; disable with `tmux_mouse = false`.)
-- **Select = copy**: dragging always selects text locally, even inside tmux, and copies it to the Windows (host) clipboard — never to tmux on the server — with a "Copy berhasil" notification. Copied text is cleaned up: trailing blanks are removed from every line, lines that were only broken by the screen width are joined back together, and line breaks are Windows-style (CRLF), so multi-line text pastes correctly anywhere.
+- **Select = copy**: dragging always selects text locally, even inside tmux, and copies it to the Windows (host) clipboard — never to tmux on the server — with a "Copy berhasil" notification. Copied text is cleaned up: padding blanks are removed, text that a program wrapped to the screen width (padding the rest of the row with spaces) is joined back into flowing sentences, real line breaks are kept as Windows-style CRLF, so it pastes cleanly into Notepad or Word.
 - **Right-click = paste** (also middle-click, `Shift+Insert`, `Ctrl+Shift+V`).
 - `Ctrl+Wheel` changes the font size; `Ctrl+0` resets it.
 
