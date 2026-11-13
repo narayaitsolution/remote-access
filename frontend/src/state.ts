@@ -47,6 +47,7 @@ export const hooks = {
   activePane: (): Pane | null => null,
   allPanes: (): Pane[] => [],
   enterPressed: (_p: Pane) => {},
+  openEditor: (_src: Pane, _path: string): Promise<void> => Promise.resolve(),
   paneFocused: (_p: Pane) => {},
   paneDisposed: (_p: Pane) => {},
   toggleAI: () => {},

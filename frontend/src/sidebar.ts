@@ -234,9 +234,10 @@ export class Sidebar {
     this.renderSel();
   }
 
+  /** Double-click / Enter: folders are entered, files open in the editor. */
   private open(e: Entry) {
     if (e.isDir) this.navigate(join(this.path, e.name));
-    else this.download([join(this.path, e.name)]);
+    else if (this.pane?.connected) hooks.openEditor(this.pane, join(this.path, e.name));
   }
 
   private selPaths(): string[] {
@@ -364,6 +365,7 @@ export class Sidebar {
     const full = join(this.path, e.name);
     const items: MenuItem[] = [];
     if (e.isDir && !multi) items.push({ label: 'Buka', icon: icons.folder, action: () => this.navigate(full) });
+    if (!e.isDir && !multi) items.push({ label: 'Buka di editor', icon: icons.rename, hint: 'Double-click', action: () => this.open(e) });
     items.push(
       { label: multi ? `Download ${this.selected.size} item` : 'Download', icon: icons.download, action: () => this.download() },
       { label: 'Rename', icon: icons.rename, hint: 'F2', disabled: multi, action: () => this.rename() },

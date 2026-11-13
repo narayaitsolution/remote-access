@@ -6,9 +6,10 @@ import { Close, Connect, Reconnect, Resize, Write, WriteBinary } from '../wailsj
 import { ClipboardGetText, ClipboardSetText, EventsOn } from '../wailsjs/runtime/runtime';
 import { askPassword, Picker } from './picker';
 import { hooks, refreshState, store, type ProfileView } from './state';
-import { errMsg, h, toast } from './ui';
+import { EditorView } from './editor';
+import { errMsg, h, openModal, toast } from './ui';
 
-export type PaneState = 'picker' | 'connecting' | 'connected' | 'reconnecting' | 'ended' | 'failed';
+export type PaneState = 'picker' | 'connecting' | 'connected' | 'reconnecting' | 'ended' | 'failed' | 'editor';
 
 const termTheme = {
   background: '#18181b', foreground: '#e4e4e7', cursor: '#e4e4e7', cursorAccent: '#18181b',
@@ -39,20 +40,61 @@ export class Pane {
   private unsubs: (() => void)[] = [];
   private ro: ResizeObserver;
 
-  constructor() {
+  /** Set when this pane shows a file editor instead of a terminal. */
+  editor: EditorView | null = null;
+  /** The terminal pane whose connection the editor uses (for sidebar and AI). */
+  editorSrc: Pane | null = null;
+
+  constructor(showPicker = true) {
     this.badge = h('div', { class: 'pane-badge hidden' });
     this.el = h('div', { class: 'pane' });
     this.el.addEventListener('mousedown', () => hooks.focusPane(this), true);
     this.ro = new ResizeObserver(() => this.refit());
     this.ro.observe(this.el);
-    this.showPicker();
+    if (showPicker) this.showPicker();
   }
 
   get connected() { return this.state === 'connected' && !!this.sessionId; }
 
   focus() {
-    if (this.term) this.term.focus();
+    if (this.editor) this.editor.focus();
+    else if (this.term) this.term.focus();
     else this.picker?.focus();
+  }
+
+  /** Turns this pane into an editor for a remote file. Resolves false if it could not be opened. */
+  async openEditor(src: Pane, path: string): Promise<boolean> {
+    this.editorSrc = src;
+    const ed = new EditorView(src.sessionId, path, () => {
+      this.title = (ed.dirty ? '● ' : '') + ed.fileName;
+      hooks.paneChanged(this);
+    });
+    this.editor = ed;
+    this.title = ed.fileName;
+    this.el.replaceChildren(ed.el);
+    this.state = 'editor';
+    hooks.paneChanged(this);
+    try {
+      await ed.load();
+      return true;
+    } catch (e) {
+      toast(`Tidak bisa membuka ${ed.fileName}: ${errMsg(e)}`, 'error');
+      return false;
+    }
+  }
+
+  /** Asks about unsaved changes. Resolves true when the pane may be closed. */
+  async canClose(): Promise<boolean> {
+    if (!this.editor?.dirty) return true;
+    const body = h('div', { class: 'modal-text' });
+    body.textContent = `Simpan perubahan pada "${this.editor.fileName}" sebelum ditutup?`;
+    const r = await openModal('Perubahan belum disimpan', body, [
+      { label: 'Batal', value: 'cancel' },
+      { label: 'Jangan simpan', value: 'discard', danger: true },
+      { label: 'Simpan', value: 'save', primary: true },
+    ]);
+    if (r === 'save') return this.editor.save();
+    return r === 'discard';
   }
 
   private setState(s: PaneState) {
@@ -132,6 +174,7 @@ export class Pane {
   }
 
   setFont(family: string, size: number) {
+    this.editor?.setFontSize(size);
     if (!this.term) return;
     this.term.options.fontFamily = family;
     this.term.options.fontSize = size;
@@ -271,6 +314,7 @@ export class Pane {
     this.ro.disconnect();
     this.teardownTerm();
     this.picker?.dispose();
+    this.editor?.dispose();
     this.el.remove();
   }
 }

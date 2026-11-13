@@ -73,6 +73,13 @@ A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a
 - **Usage** is shown in the panel: for Claude, your subscription's 5-hour and 7-day limit utilisation (with reset time) plus tokens and estimated cost of the chat; for Codex, the tokens used by the chat.
 - Each terminal pane has its own chat; *New chat* starts over. The AI CLIs run in an empty temporary folder with their own local tools disabled, so they can only act on the remote server through the app's tools (Codex additionally runs with a read-only sandbox).
 
+### Built-in file editor (like VS Code)
+- **Double-click a file in the sidebar** (or right-click → *Open in editor*) to open it in a new tab in the main area. The editor is **Monaco**, the editor component of VS Code: line numbers, syntax highlighting chosen from the file name (Python, JS/TS, Go, PHP, shell, YAML, JSON, Dockerfile, nginx/ini configs, …), minimap, find/replace (`Ctrl+F` / `Ctrl+H`), multi-cursor, bracket matching.
+- **`Ctrl+S` saves** back to the server. The tab shows `●` while there are unsaved changes; a status bar shows line/column, indentation, line endings (LF/CRLF are preserved) and language.
+- **Closing a tab with unsaved changes asks**: *Save*, *Don't save* or *Cancel*. Closing the whole app with unsaved files asks too.
+- If the file was changed on the server since you opened it (by someone else, a script or an AI tool), saving warns you before overwriting.
+- Text files up to 5 MB; binary files are refused (use Download).
+
 ### Notifications
 - A small notification in the top-right corner confirms every copy and reports success or failure of every file action (upload, download, new file/folder, rename, delete, chmod, refresh, up).
 
@@ -184,6 +191,7 @@ wails build -clean -trimpath -ldflags "-s -w"
 | `frontend/src/picker.ts` | Server list, profile editor, password prompt |
 | `frontend/src/sidebar.ts` | SFTP file browser, context menu, transfers, drag & drop |
 | `frontend/src/ai.ts` | AI panel: chat, approvals, tool execution in the terminal, usage |
+| `frontend/src/editor.ts`, `monaco.ts` | File editor tabs (Monaco) with save, dirty tracking and conflict detection |
 
 ## Built with
 
@@ -211,6 +219,7 @@ Aplikasi terminal SSH portable untuk Windows dengan sidebar file SFTP, alternati
 - **Sidebar SFTP** yang bisa ditampilkan/disembunyikan, secara default **mengikuti folder kerja terminal**, dan bisa dinavigasi sendiri.
 - **Toolbar ikon kecil satu baris:** naik folder, upload, download, file baru, folder baru, rename, hapus, refresh, ikuti terminal.
 - **Menu klik kanan** untuk semua operasi file, pilih banyak file sekaligus, upload/download folder dengan progress bar, dan **drag & drop dari Windows Explorer** untuk upload.
+- **Editor file seperti VS Code**: double-click file di sidebar untuk membukanya di tab baru (nomor baris, warna sintaks), `Ctrl+S` untuk menyimpan ke server, konfirmasi saat menutup tab yang belum disimpan.
 - **Notifikasi (toast) di kanan atas** saat copy berhasil dan saat setiap operasi file berhasil/gagal.
 - **Asisten AI (`Ctrl+Shift+A`)** memakai Claude Code / Codex yang sudah login di komputer ini, bisa memilih model, dan menampilkan usage (limit 5 jam / 7 hari untuk Claude). **Defaultnya chat biasa**; jika permintaan butuh server, AI **meminta izin** dulu untuk membaca layar/file, menjalankan perintah (terlihat di terminal), menulis file, atau **mengetik ke aplikasi yang sedang berjalan** seperti opencode di tmux.
 - **Verifikasi host key** dengan peringatan jika kunci server berubah.

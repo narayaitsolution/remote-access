@@ -40,6 +40,8 @@ export function Mkdir(arg1:string,arg2:string):Promise<void>;
 
 export function MoveProfile(arg1:string,arg2:number):Promise<void>;
 
+export function OpenFileForEdit(arg1:string,arg2:string):Promise<main.EditFile>;
+
 export function OpenLocalFolder(arg1:string):Promise<void>;
 
 export function PickKeyFile():Promise<string>;
@@ -56,9 +58,13 @@ export function Resize(arg1:string,arg2:number,arg3:number):Promise<void>;
 
 export function RunHidden(arg1:string,arg2:string,arg3:number):Promise<string>;
 
+export function SaveEditedFile(arg1:string,arg2:string,arg3:string,arg4:string,arg5:boolean):Promise<string>;
+
 export function SaveProfile(arg1:main.ProfileInput):Promise<main.ProfileView>;
 
 export function SaveSettings(arg1:main.Settings):Promise<void>;
+
+export function SetUnsavedCount(arg1:number):Promise<void>;
 
 export function Upload(arg1:string,arg2:Array<string>,arg3:string):Promise<void>;
 

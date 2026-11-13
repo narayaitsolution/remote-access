@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/pkg/sftp"
 )
@@ -390,4 +392,96 @@ func downloadFile(ctx context.Context, c *sftp.Client, remote, local string, pro
 		os.Remove(local)
 	}
 	return err
+}
+
+// ---------- editor ----------
+
+const maxEditBytes = 5 << 20
+
+type EditFile struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
+	Stamp   string `json:"stamp"` // modification time + size, used to detect outside changes
+	Size    int64  `json:"size"`
+	Mode    string `json:"mode"`
+}
+
+// fileStamp fingerprints a file version. SFTP reports times in whole seconds,
+// so the size is included to catch changes within the same second.
+func fileStamp(fi os.FileInfo) string {
+	return fmt.Sprintf("%d:%d", fi.ModTime().Unix(), fi.Size())
+}
+
+func (s *Session) readForEdit(p string) (EditFile, error) {
+	c, err := s.getSFTP()
+	if err != nil {
+		return EditFile{}, err
+	}
+	st, err := c.Stat(p)
+	if err != nil {
+		return EditFile{}, err
+	}
+	if st.IsDir() {
+		return EditFile{}, errors.New("ini folder, bukan file")
+	}
+	if st.Size() > maxEditBytes {
+		return EditFile{}, fmt.Errorf("file terlalu besar untuk editor (%d MB, maks 5 MB). Gunakan Download", st.Size()>>20)
+	}
+	f, err := c.Open(p)
+	if err != nil {
+		return EditFile{}, err
+	}
+	defer f.Close()
+	data, err := io.ReadAll(io.LimitReader(f, maxEditBytes+1))
+	if err != nil {
+		return EditFile{}, err
+	}
+	if looksBinary(data) {
+		return EditFile{}, errors.New("file biner (bukan teks), tidak bisa dibuka di editor. Gunakan Download")
+	}
+	return EditFile{Path: p, Content: string(data), Stamp: fileStamp(st), Size: st.Size(), Mode: st.Mode().String()}, nil
+}
+
+// looksBinary reports NUL bytes or invalid UTF-8 in the first 8 KB.
+func looksBinary(b []byte) bool {
+	if len(b) > 8192 {
+		b = b[:8192]
+	}
+	if bytes.IndexByte(b, 0) >= 0 {
+		return true
+	}
+	// Allow a multi-byte character cut at the 8 KB boundary.
+	for i := 0; i < 4 && len(b) > 0 && !utf8.Valid(b); i++ {
+		b = b[:len(b)-1]
+	}
+	return !utf8.Valid(b)
+}
+
+// saveFromEdit writes content and returns the new stamp. If expect is set and
+// the file changed on the server since it was opened, it fails with "conflict:"
+// unless force is set.
+func (s *Session) saveFromEdit(p, content, expect string, force bool) (string, error) {
+	c, err := s.getSFTP()
+	if err != nil {
+		return "", err
+	}
+	if st, err := c.Stat(p); err == nil && expect != "" && !force && fileStamp(st) != expect {
+		return "", fmt.Errorf("conflict:File di server sudah berubah sejak dibuka (terakhir diubah %s)", st.ModTime().Format("2006-01-02 15:04:05"))
+	}
+	f, err := c.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
+	if err != nil {
+		return "", err
+	}
+	if _, err := io.WriteString(f, content); err != nil {
+		f.Close()
+		return "", err
+	}
+	if err := f.Close(); err != nil {
+		return "", err
+	}
+	st, err := c.Stat(p)
+	if err != nil {
+		return "", nil
+	}
+	return fileStamp(st), nil
 }

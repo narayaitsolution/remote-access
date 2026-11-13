@@ -1,4 +1,5 @@
 // Tabs, split panes, focus handling and keyboard shortcuts.
+import { SetUnsavedCount } from '../wailsjs/go/main/App';
 import { WindowIsFullscreen, WindowFullscreen, WindowUnfullscreen } from '../wailsjs/runtime/runtime';
 import { icons } from './icons';
 import { Pane } from './pane';
@@ -49,7 +50,14 @@ export class Layout {
         h('button', { class: 'ai-toggle', title: `Asisten AI (${k.toggle_ai})`, onclick: () => hooks.toggleAI() }, 'AI')),
       this.area);
 
-    hooks.paneChanged = p => { this.renderTabs(); if (p === this.cur?.active) { this.sidebar.bind(p); hooks.paneFocused(p); } };
+    // Editor panes share the connection of the terminal they came from.
+    const target = (p: Pane) => p.editorSrc ?? p;
+    hooks.paneChanged = p => {
+      this.renderTabs();
+      this.reportUnsaved();
+      if (p === this.cur?.active) { this.sidebar.bind(target(p)); hooks.paneFocused(target(p)); }
+    };
+    hooks.openEditor = (src, path) => this.openEditor(src, path);
     hooks.closePane = p => this.closePane(p);
     hooks.focusPane = p => this.focusPane(p);
     hooks.activePane = () => this.cur?.active ?? null;
@@ -77,11 +85,40 @@ export class Layout {
     this.focusPane(tab.active);
   }
 
-  private closeTab(tab: Tab) {
+  /** Opens a remote file in an editor tab (or switches to it if already open). */
+  async openEditor(src: Pane, path: string) {
+    for (const t of this.tabs) {
+      const ed = t.panes().find(p => p.editor && p.editor.path === path && p.editor.sessionId === src.sessionId);
+      if (ed) { this.focusPane(ed); return; }
+    }
+    const pane = new Pane(false);
+    const tab = new Tab(pane);
+    const i = this.tabs.indexOf(this.cur);
+    this.tabs.splice(i + 1, 0, tab);
+    this.area.append(tab.el);
+    this.renderTree(tab);
+    this.selectTab(tab);
+    if (!(await pane.openEditor(src, path))) this.closeTab(tab, true);
+  }
+
+  private reportUnsaved() {
+    const n = this.tabs.flatMap(t => t.panes()).filter(p => p.editor?.dirty).length;
+    if (n !== this.lastUnsaved) { this.lastUnsaved = n; SetUnsavedCount(n); }
+  }
+  private lastUnsaved = 0;
+
+  private async closeTab(tab: Tab, force = false) {
+    if (!force) {
+      for (const p of tab.panes()) {
+        if (!(await p.canClose())) return;
+      }
+    }
     const i = this.tabs.indexOf(tab);
+    if (i < 0) return;
     tab.panes().forEach(p => p.dispose());
     tab.el.remove();
     this.tabs.splice(i, 1);
+    this.reportUnsaved();
     if (this.tabs.length === 0) { this.newTab(); return; }
     if (tab === this.cur) this.selectTab(this.tabs[Math.min(i, this.tabs.length - 1)]);
     else this.renderTabs();
@@ -93,7 +130,7 @@ export class Layout {
       const panes = t.panes();
       const p = t.active;
       const dot = h('span', { class: 'dot ' + p.state });
-      const label = h('span', { class: 'tab-label' }, p.title + (panes.length > 1 ? ` (${panes.length})` : ''));
+      const label = h('span', { class: 'tab-label', title: p.editor?.path ?? '' }, p.title + (panes.length > 1 ? ` (${panes.length})` : ''));
       const close = h('span', { class: 'tab-close', html: icons.x, title: 'Tutup tab' });
       close.addEventListener('click', e => { e.stopPropagation(); this.closeTab(t); });
       t.btn.className = 'tab' + (t === this.cur ? ' active' : '');
@@ -118,10 +155,11 @@ export class Layout {
     this.focusPane(pane);
   }
 
-  closePane(p: Pane) {
+  async closePane(p: Pane) {
     const tab = this.tabs.find(t => t.panes().includes(p));
     if (!tab) return;
     if (tab.root.kind === 'leaf') { this.closeTab(tab); return; }
+    if (!(await p.canClose())) return;
     let sibling: Node | null = null;
     const remove = (n: Node): Node => {
       if (n.kind === 'leaf') return n;
@@ -179,8 +217,8 @@ export class Layout {
     if (tab !== this.cur) { this.selectTab(tab); return; }
     tab.panes().forEach(x => x.el.classList.toggle('active', x === p));
     this.renderTabs();
-    this.sidebar.bind(p);
-    hooks.paneFocused(p);
+    this.sidebar.bind(p.editorSrc ?? p);
+    hooks.paneFocused(p.editorSrc ?? p);
     p.focus();
   }
 
@@ -229,6 +267,7 @@ export class Layout {
     else if (is('paste')) p.paste();
     else if (is('fullscreen')) this.toggleFullscreen();
     else if (is('toggle_ai')) hooks.toggleAI();
+    else if (p.editor && e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 's') p.editor.save();
     else if (e.ctrlKey && !e.shiftKey && !e.altKey && /^[1-9]$/.test(e.key)) {
       const t = this.tabs[Number(e.key) - 1];
       if (t) this.selectTab(t);

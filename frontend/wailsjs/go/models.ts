@@ -180,6 +180,26 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class EditFile {
+	    path: string;
+	    content: string;
+	    stamp: string;
+	    size: number;
+	    mode: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new EditFile(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.content = source["content"];
+	        this.stamp = source["stamp"];
+	        this.size = source["size"];
+	        this.mode = source["mode"];
+	    }
+	}
 	
 	export class ProfileInput {
 	    id: string;

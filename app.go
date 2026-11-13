@@ -39,6 +39,7 @@ type App struct {
 	ai aiState
 
 	emitHook func(name string, data any) // replaces UI events in tests
+	unsaved  int                         // unsaved editor files
 }
 
 func NewApp() *App {
@@ -548,4 +549,53 @@ func (a *App) RunHidden(id, command string, timeoutSec int) (string, error) {
 		out = "[... output awal dipotong]\n" + out[len(out)-30000:]
 	}
 	return fmt.Sprintf("exit code: %d\n%s", code, strings.TrimRight(out, "\n")), nil
+}
+
+// ---------- editor ----------
+
+// OpenFileForEdit reads a remote text file for the built-in editor.
+func (a *App) OpenFileForEdit(id, path string) (EditFile, error) {
+	s, err := a.session(id)
+	if err != nil {
+		return EditFile{}, err
+	}
+	return s.readForEdit(path)
+}
+
+// SaveEditedFile writes the editor content and returns the new version stamp.
+// Errors starting with "conflict:" mean the file changed on the server meanwhile.
+func (a *App) SaveEditedFile(id, path, content, expectStamp string, force bool) (string, error) {
+	s, err := a.session(id)
+	if err != nil {
+		return "", errors.New("terminal untuk file ini sudah ditutup; buka lagi koneksinya")
+	}
+	return s.saveFromEdit(path, content, expectStamp, force)
+}
+
+// SetUnsavedCount is updated by the UI so closing the window can warn.
+func (a *App) SetUnsavedCount(n int) {
+	a.cfgMu.Lock()
+	a.unsaved = n
+	a.cfgMu.Unlock()
+}
+
+func (a *App) beforeClose(ctx context.Context) bool {
+	a.cfgMu.Lock()
+	n := a.unsaved
+	a.cfgMu.Unlock()
+	if n == 0 {
+		return false
+	}
+	res, err := runtime.MessageDialog(ctx, runtime.MessageDialogOptions{
+		Type:          runtime.QuestionDialog,
+		Title:         "Perubahan belum disimpan",
+		Message:       fmt.Sprintf("Ada %d file yang belum disimpan. Tutup aplikasi dan buang perubahannya?", n),
+		Buttons:       []string{"Tutup tanpa menyimpan", "Batal"},
+		DefaultButton: "Batal",
+		CancelButton:  "Batal",
+	})
+	if err != nil {
+		return false
+	}
+	return res != "Tutup tanpa menyimpan" && res != "Yes" && res != "Ok"
 }

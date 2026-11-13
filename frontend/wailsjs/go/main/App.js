@@ -78,6 +78,10 @@ export function MoveProfile(arg1, arg2) {
   return window['go']['main']['App']['MoveProfile'](arg1, arg2);
 }
 
+export function OpenFileForEdit(arg1, arg2) {
+  return window['go']['main']['App']['OpenFileForEdit'](arg1, arg2);
+}
+
 export function OpenLocalFolder(arg1) {
   return window['go']['main']['App']['OpenLocalFolder'](arg1);
 }
@@ -110,12 +114,20 @@ export function RunHidden(arg1, arg2, arg3) {
   return window['go']['main']['App']['RunHidden'](arg1, arg2, arg3);
 }
 
+export function SaveEditedFile(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['SaveEditedFile'](arg1, arg2, arg3, arg4, arg5);
+}
+
 export function SaveProfile(arg1) {
   return window['go']['main']['App']['SaveProfile'](arg1);
 }
 
 export function SaveSettings(arg1) {
   return window['go']['main']['App']['SaveSettings'](arg1);
+}
+
+export function SetUnsavedCount(arg1) {
+  return window['go']['main']['App']['SetUnsavedCount'](arg1);
 }
 
 export function Upload(arg1, arg2, arg3) {

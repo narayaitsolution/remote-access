@@ -458,3 +458,52 @@ func TestKeyLogin(t *testing.T) {
 		t.Fatalf("ppk file: %v", err)
 	}
 }
+
+func TestEditorReadSaveConflict(t *testing.T) {
+	fs := newFakeServer(t)
+	a, p := testApp(t, fs)
+	s := newSession(a, p, "secret", 80, 24)
+	if err := s.connect(startScript("", "")); err != nil {
+		t.Fatal(err)
+	}
+	s.setState(stateConnected, "")
+	defer s.close()
+	c, _ := s.getSFTP()
+	w := func(path, content string) {
+		f, err := c.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.Write([]byte(content))
+		f.Close()
+	}
+	w("/app.py", "print('hi')\r\n")
+	ef, err := s.readForEdit("/app.py")
+	if err != nil || ef.Content != "print('hi')\r\n" {
+		t.Fatalf("read: %+v %v", ef, err)
+	}
+	mod, err := s.saveFromEdit("/app.py", "print('hello')\r\n", ef.Stamp, false)
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	ef2, _ := s.readForEdit("/app.py")
+	if ef2.Content != "print('hello')\r\n" {
+		t.Fatalf("content after save: %q", ef2.Content)
+	}
+	// Someone else changes the file → saving with the old timestamp is a conflict.
+	// (The in-memory test server only sets mtime on create, so recreate the file.)
+	time.Sleep(20 * time.Millisecond)
+	c.Remove("/app.py")
+	w("/app.py", "changed elsewhere")
+	if _, err := s.saveFromEdit("/app.py", "mine", mod, false); err == nil || !strings.HasPrefix(err.Error(), "conflict:") {
+		t.Fatalf("want conflict, got %v", err)
+	}
+	if _, err := s.saveFromEdit("/app.py", "mine", mod, true); err != nil {
+		t.Fatalf("forced save: %v", err)
+	}
+	// Binary files are refused.
+	w("/bin.dat", "ab\x00cd")
+	if _, err := s.readForEdit("/bin.dat"); err == nil || !strings.Contains(err.Error(), "biner") {
+		t.Fatalf("binary: %v", err)
+	}
+}
