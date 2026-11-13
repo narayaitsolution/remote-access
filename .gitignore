@@ -1,0 +1,9 @@
+build/bin
+frontend/dist
+frontend/node_modules
+
+# Personal data created next to the .exe — never commit these
+config.toml
+config.toml.tmp
+known_hosts
+frontend/package.json.md5
