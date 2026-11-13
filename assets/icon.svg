@@ -1,0 +1,23 @@
+<svg id="icon" xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2563eb"/><stop offset="1" stop-color="#0891b2"/>
+    </linearGradient>
+    <linearGradient id="scr" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0f172a"/><stop offset="1" stop-color="#020617"/>
+    </linearGradient>
+  </defs>
+  <!-- app tile -->
+  <rect x="32" y="32" width="960" height="960" rx="210" fill="url(#bg)"/>
+  <!-- terminal window -->
+  <rect x="130" y="300" width="610" height="530" rx="70" fill="url(#scr)" stroke="#e0f2fe" stroke-opacity=".35" stroke-width="10"/>
+  <path d="M200 300 H670 A70 70 0 0 1 740 370 V410 H130 V370 A70 70 0 0 1 200 300 Z" fill="#1e293b"/>
+  <circle cx="210" cy="355" r="22" fill="#f87171"/><circle cx="275" cy="355" r="22" fill="#fbbf24"/><circle cx="340" cy="355" r="22" fill="#4ade80"/>
+  <!-- prompt >_ -->
+  <path d="M235 520 L365 610 L235 700" fill="none" stroke="#4ade80" stroke-width="56" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="415" y="672" width="190" height="52" rx="20" fill="#e2e8f0"/>
+  <!-- remote connection waves -->
+  <circle cx="790" cy="240" r="40" fill="#ffffff"/>
+  <path d="M790 155 A85 85 0 0 1 875 240" fill="none" stroke="#ffffff" stroke-width="38" stroke-linecap="round"/>
+  <path d="M790 80 A160 160 0 0 1 950 240" fill="none" stroke="#ffffff" stroke-opacity=".8" stroke-width="38" stroke-linecap="round"/>
+</svg>

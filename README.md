@@ -1,6 +1,6 @@
 # Remote Terminal
 
-**Current version: 8.2** — see [Version history](#version-history).
+**Current version: 8.3** — see [Version history](#version-history).
 
 A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a focused alternative to MobaXterm for people who mostly live in `ssh` + `tmux`.
 
@@ -227,6 +227,7 @@ To release a new version: change `appVersion` in `version.go` (and `productVersi
 | `ai_openai.go` | OpenAI-compatible providers (base URL + API key) |
 | `fileicon*.go`, `frontend/src/fileicons.ts` | File-type icons taken from Windows (Explorer icons) |
 | `version.go` | Application version |
+| `assets/icon.svg`, `assets/icon-source.png`, `tools/mkicon` | App icon source; `go run ./tools/mkicon assets/icon-source.png` writes `build/appicon.png` and `build/windows/icon.ico` |
 
 ## Version history
 
@@ -234,6 +235,7 @@ Versioning scheme: the **major** number goes up when a new feature is added; the
 
 | Version | Type | Changes |
 |---|---|---|
+| **8.3** | Minor | New application icon (terminal window with a remote-connection signal) replacing the default framework "W" icon; `tools/mkicon` regenerates the icons from `assets/icon-source.png` |
 | **8.2** | Minor | File icons in the SFTP sidebar now match Windows Explorer: each file type shows the icon of the program it opens with (PDF, Word, Excel, PowerPoint, text, archives, Python, …), with built-in icons as fallback |
 | **8.1** | Minor | Fixed a grey box covering the title of the first tab ("Pilih…") on the server picker; `build.ps1` names the executable after the version (`RemoteTerminal-8.1.exe`) |
 | **8.0** | Feature | PDF viewer, Markdown preview/edit, image viewer; editing Word/Excel/PowerPoint in the Windows application with automatic upload on save; *Open with Windows application* for any file; first-run check of supporting programs with one-click winget installation (Claude Code, Codex, LibreOffice) and *Login* buttons; version shown in the window title |
@@ -291,6 +293,7 @@ Skema: angka **mayor** naik bila ada fitur baru, angka **minor** naik untuk perb
 
 | Versi | Ringkasan |
 |---|---|
+| 8.3 | Ikon aplikasi baru (jendela terminal dengan sinyal koneksi remote) menggantikan ikon "W" bawaan framework |
 | 8.2 | Ikon file di sidebar FTP mengikuti ikon aplikasinya seperti di Windows Explorer (PDF, Word, Excel, PowerPoint, teks, arsip, Python, dll.) |
 | 8.1 | Perbaikan kotak abu-abu yang menutupi judul tab pertama di halaman pilih server; nama file .exe kini sesuai versi (`RemoteTerminal-8.1.exe`) |
 | 8.0 | Viewer PDF/Markdown/gambar, edit file Office di aplikasi Windows, cek & pasang program pendukung |
