@@ -2,9 +2,10 @@ import '@xterm/xterm/css/xterm.css';
 import './style.css';
 import { HostKeyAnswer } from '../wailsjs/go/main/App';
 import { EventsOn } from '../wailsjs/runtime/runtime';
+import { AIPanel } from './ai';
 import { Layout } from './layout';
 import { Sidebar } from './sidebar';
-import { refreshState, store } from './state';
+import { hooks, refreshState, store } from './state';
 import { h, openModal, toast } from './ui';
 
 interface HostKeyPrompt { reqId: string; host: string; keyType: string; fingerprint: string; changed: boolean }
@@ -12,8 +13,13 @@ interface HostKeyPrompt { reqId: string; host: string; keyType: string; fingerpr
 async function boot() {
   await refreshState();
   const sidebar = new Sidebar();
+  const ai = new AIPanel();
+  hooks.paneFocused = p => ai.bind(p);
+  hooks.paneDisposed = p => ai.disposePane(p);
+  hooks.toggleAI = () => ai.toggle();
+  hooks.filesChanged = () => sidebar.refresh();
   const layout = new Layout(sidebar);
-  document.getElementById('app')!.append(h('div', { class: 'root' }, sidebar.el, layout.el));
+  document.getElementById('app')!.append(h('div', { class: 'root' }, sidebar.el, layout.el, ai.el));
   if (store.configError) toast(store.configError, 'error');
 
   EventsOn('hostkey', async (p: HostKeyPrompt) => {

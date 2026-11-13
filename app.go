@@ -1,14 +1,18 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"errors"
+	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -31,10 +35,15 @@ type App struct {
 
 	xferMu sync.Mutex
 	xfers  map[string]*Transfer
+
+	ai aiState
+
+	emitHook func(name string, data any) // replaces UI events in tests
 }
 
 func NewApp() *App {
-	return &App{sessions: map[string]*Session{}, hostWait: map[string]chan bool{}, xfers: map[string]*Transfer{}}
+	return &App{sessions: map[string]*Session{}, hostWait: map[string]chan bool{}, xfers: map[string]*Transfer{},
+		ai: aiState{chats: map[string]*aiChat{}, pending: map[string]chan aiToolResult{}}}
 }
 
 func (a *App) startup(ctx context.Context) {
@@ -49,6 +58,7 @@ func (a *App) startup(ctx context.Context) {
 }
 
 func (a *App) shutdown(ctx context.Context) {
+	a.shutdownAI()
 	a.sessMu.Lock()
 	defer a.sessMu.Unlock()
 	for _, s := range a.sessions {
@@ -57,6 +67,10 @@ func (a *App) shutdown(ctx context.Context) {
 }
 
 func (a *App) emit(name string, data any) {
+	if a.emitHook != nil { // tests
+		a.emitHook(name, data)
+		return
+	}
 	if a.ctx != nil {
 		runtime.EventsEmit(a.ctx, name, data)
 	}
@@ -427,4 +441,87 @@ func (a *App) CancelTransfer(id string) {
 // OpenLocalFolder shows a downloaded folder in Explorer.
 func (a *App) OpenLocalFolder(dir string) {
 	exec.Command("explorer", filepath.Clean(dir)).Start()
+}
+
+// ---------- helpers for AI tools ----------
+
+// CaptureTmux returns the history of the tmux pane this terminal shows
+// (wrapped lines joined), or an error when the terminal is not in tmux.
+func (a *App) CaptureTmux(id string, lines int) (string, error) {
+	s, err := a.session(id)
+	if err != nil {
+		return "", err
+	}
+	s.mu.Lock()
+	tty := s.tty
+	s.mu.Unlock()
+	if tty == "" {
+		return "", errors.New("tty belum diketahui")
+	}
+	if lines <= 0 || lines > 5000 {
+		lines = 2000
+	}
+	cmd := fmt.Sprintf(`p=$(tmux display-message -p -c %s '#{pane_id}' 2>/dev/null) && [ -n "$p" ] && tmux capture-pane -p -J -S -%d -t "$p"`, shellQuote(tty), lines)
+	out, err := s.runCmd(cmd, 10*time.Second)
+	if err != nil {
+		return "", errors.New("bukan di dalam tmux")
+	}
+	return out, nil
+}
+
+// ReadFileText reads up to maxBytes of a remote file.
+func (a *App) ReadFileText(id, path string, maxBytes int) (string, error) {
+	s, err := a.session(id)
+	if err != nil {
+		return "", err
+	}
+	c, err := s.getSFTP()
+	if err != nil {
+		return "", err
+	}
+	if maxBytes <= 0 || maxBytes > 2<<20 {
+		maxBytes = 200000
+	}
+	f, err := c.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	buf, err := io.ReadAll(io.LimitReader(f, int64(maxBytes)+1))
+	if err != nil {
+		return "", err
+	}
+	truncated := len(buf) > maxBytes
+	if truncated {
+		buf = buf[:maxBytes]
+	}
+	if bytes.IndexByte(buf, 0) >= 0 {
+		return "", errors.New("file biner, tidak bisa dibaca sebagai teks")
+	}
+	text := string(buf)
+	if truncated {
+		text += fmt.Sprintf("\n[... dipotong setelah %d byte]", maxBytes)
+	}
+	return text, nil
+}
+
+// WriteFileText creates or overwrites a remote text file.
+func (a *App) WriteFileText(id, path, content string) error {
+	s, err := a.session(id)
+	if err != nil {
+		return err
+	}
+	c, err := s.getSFTP()
+	if err != nil {
+		return err
+	}
+	f, err := c.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
+	if err != nil {
+		return err
+	}
+	if _, err := io.WriteString(f, content); err != nil {
+		f.Close()
+		return err
+	}
+	return f.Close()
 }

@@ -267,6 +267,7 @@ export class Pane {
   }
 
   dispose() {
+    hooks.paneDisposed(this);
     this.ro.disconnect();
     this.teardownTerm();
     this.picker?.dispose();

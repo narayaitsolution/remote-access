@@ -57,6 +57,19 @@ A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a
 - **Drag & drop from Windows Explorer** onto the sidebar to upload (drop onto a folder row to upload into that folder).
 - Keyboard: `Enter` open, `Backspace` up, `F2` rename, `Del` delete, `F5` refresh, `Ctrl+A` select all.
 
+### AI assistant that works in your terminal
+- Open the AI panel with `Ctrl+Shift+A` (or the **AI** button). It uses the AI CLIs already installed and logged in on your PC — **Claude Code** (`claude`) and **Codex** (`codex`) — so there is no extra login or API key.
+- Choose the provider and **model** per provider (Claude: opus / sonnet / haiku or a full model id; Codex: the models from your Codex installation). "Model lain…" accepts any model name.
+- The AI does not just chat — it can **act on the server** through tools the app provides:
+  - read the screen (including tmux history),
+  - run commands — **typed into your visible terminal so you can watch them run**, with the exit code and output returned to the AI,
+  - send keys (answer prompts, quit a pager, `Ctrl+C`),
+  - list, read and write files over SFTP.
+- **Everything that changes something needs your approval first** (run command, send keys, write file). The request appears both on the terminal itself and in the panel: *Allow*, *Deny*, or *Allow all* for that chat. Reading the screen and files does not ask.
+- While the AI works, the terminal gets a purple frame and a status badge ("AI: running command — df -h"), so you always see what it is doing.
+- **Usage** is shown in the panel: for Claude, your subscription's 5-hour and 7-day limit utilisation (with reset time) plus tokens and estimated cost of the chat; for Codex, the tokens used by the chat.
+- Each terminal pane has its own chat; *New chat* starts over. The AI CLIs run in an empty temporary folder with their own local tools disabled, so they can only act on the remote server through the app's tools (Codex additionally runs with a read-only sandbox).
+
 ### Notifications
 - A small notification in the top-right corner confirms every copy and reports success or failure of every file action (upload, download, new file/folder, rename, delete, chmod, refresh, up).
 
@@ -78,6 +91,7 @@ A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a
 | `Ctrl+Shift+C`, `Ctrl+Shift+V` | Copy / paste |
 | `Ctrl+Wheel`, `Ctrl+0` | Zoom font / reset |
 | `F11` | Full screen |
+| `Ctrl+Shift+A` | Show / hide the AI assistant |
 
 Shortcuts use `Ctrl+Shift` so they don't clash with `Ctrl+W`, `Ctrl+T` or the tmux prefix `Ctrl+B`. All of them can be changed in `config.toml`.
 
@@ -160,11 +174,13 @@ wails build -clean -trimpath -ldflags "-s -w"
 | `hostkey.go` | `known_hosts` verification |
 | `auth.go` | Password / SSH key authentication |
 | `config.go`, `secret_*.go` | `config.toml` and DPAPI password encryption |
-| `session_test.go` | Integration tests |
+| `ai.go` | AI CLI processes (Claude Code / Codex) and the local MCP tool server |
+| `session_test.go`, `ai_test.go` | Integration tests (`RT_AI_TEST=claude` or `codex` runs the live AI test) |
 | `frontend/src/layout.ts` | Tabs, splits, focus, keyboard shortcuts |
 | `frontend/src/pane.ts` | Terminal (xterm.js), mouse/clipboard behaviour, reconnect UI |
 | `frontend/src/picker.ts` | Server list, profile editor, password prompt |
 | `frontend/src/sidebar.ts` | SFTP file browser, context menu, transfers, drag & drop |
+| `frontend/src/ai.ts` | AI panel: chat, approvals, tool execution in the terminal, usage |
 
 ## Built with
 
@@ -193,6 +209,7 @@ Aplikasi terminal SSH portable untuk Windows dengan sidebar file SFTP, alternati
 - **Toolbar ikon kecil satu baris:** naik folder, upload, download, file baru, folder baru, rename, hapus, refresh, ikuti terminal.
 - **Menu klik kanan** untuk semua operasi file, pilih banyak file sekaligus, upload/download folder dengan progress bar, dan **drag & drop dari Windows Explorer** untuk upload.
 - **Notifikasi (toast) di kanan atas** saat copy berhasil dan saat setiap operasi file berhasil/gagal.
+- **Asisten AI (`Ctrl+Shift+A`)** memakai Claude Code / Codex yang sudah login di komputer ini, bisa memilih model, menampilkan usage (limit 5 jam / 7 hari untuk Claude), dan bisa **bekerja langsung di terminal**: membaca layar, menjalankan perintah yang terlihat di terminal, mengirim tombol, serta membaca/menulis file. Setiap tindakan yang mengubah sesuatu **harus Anda izinkan dulu**.
 - **Verifikasi host key** dengan peringatan jika kunci server berubah.
 
 ### Shortcut

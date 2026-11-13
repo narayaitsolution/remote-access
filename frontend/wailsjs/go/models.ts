@@ -1,5 +1,27 @@
 export namespace main {
 	
+	export class AIProviderInfo {
+	    id: string;
+	    name: string;
+	    installed: boolean;
+	    path: string;
+	    models: string[];
+	    defaultModel: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AIProviderInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.installed = source["installed"];
+	        this.path = source["path"];
+	        this.models = source["models"];
+	        this.defaultModel = source["defaultModel"];
+	    }
+	}
 	export class ProfileView {
 	    id: string;
 	    name: string;
@@ -39,6 +61,10 @@ export namespace main {
 	    keepaliveSeconds: number;
 	    tmuxMouse: boolean;
 	    downloadDir: string;
+	    aiVisible: boolean;
+	    aiWidth: number;
+	    aiProvider: string;
+	    aiModels: Record<string, string>;
 	    keys: Record<string, string>;
 	
 	    static createFrom(source: any = {}) {
@@ -57,6 +83,10 @@ export namespace main {
 	        this.keepaliveSeconds = source["keepaliveSeconds"];
 	        this.tmuxMouse = source["tmuxMouse"];
 	        this.downloadDir = source["downloadDir"];
+	        this.aiVisible = source["aiVisible"];
+	        this.aiWidth = source["aiWidth"];
+	        this.aiProvider = source["aiProvider"];
+	        this.aiModels = source["aiModels"];
 	        this.keys = source["keys"];
 	    }
 	}

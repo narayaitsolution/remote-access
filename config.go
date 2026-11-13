@@ -26,6 +26,10 @@ type Settings struct {
 	KeepaliveSeconds int               `toml:"keepalive_seconds" json:"keepaliveSeconds"`
 	TmuxMouse        bool              `toml:"tmux_mouse" json:"tmuxMouse"`
 	DownloadDir      string            `toml:"download_dir" json:"downloadDir"`
+	AIVisible        bool              `toml:"ai_visible" json:"aiVisible"`
+	AIWidth          int               `toml:"ai_width" json:"aiWidth"`
+	AIProvider       string            `toml:"ai_provider" json:"aiProvider"` // "claude" or "codex"
+	AIModels         map[string]string `toml:"ai_models" json:"aiModels"`     // provider -> chosen model
 	Keys             map[string]string `toml:"keys" json:"keys"`
 }
 
@@ -98,6 +102,7 @@ func defaultKeys() map[string]string {
 		"copy":             "Ctrl+Shift+C",
 		"paste":            "Ctrl+Shift+V",
 		"fullscreen":       "F11",
+		"toggle_ai":        "Ctrl+Shift+A",
 	}
 }
 
@@ -112,6 +117,9 @@ func defaultConfig() Config {
 		SidebarFollow:    true,
 		KeepaliveSeconds: 15,
 		TmuxMouse:        true,
+		AIWidth:          400,
+		AIProvider:       "claude",
+		AIModels:         map[string]string{},
 		Keys:             defaultKeys(),
 	}}
 }

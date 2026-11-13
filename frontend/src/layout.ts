@@ -45,10 +45,11 @@ export class Layout {
         this.tabBar,
         btn(icons.plus, `Tab baru (${k.new_tab})`, () => this.newTab()),
         btn(icons.splitV, `Split vertikal (${k.split_vertical})`, () => this.split('row')),
-        btn(icons.splitH, `Split horizontal (${k.split_horizontal})`, () => this.split('col'))),
+        btn(icons.splitH, `Split horizontal (${k.split_horizontal})`, () => this.split('col')),
+        h('button', { class: 'ai-toggle', title: `Asisten AI (${k.toggle_ai})`, onclick: () => hooks.toggleAI() }, 'AI')),
       this.area);
 
-    hooks.paneChanged = p => { this.renderTabs(); if (p === this.cur?.active) this.sidebar.bind(p); };
+    hooks.paneChanged = p => { this.renderTabs(); if (p === this.cur?.active) { this.sidebar.bind(p); hooks.paneFocused(p); } };
     hooks.closePane = p => this.closePane(p);
     hooks.focusPane = p => this.focusPane(p);
     hooks.activePane = () => this.cur?.active ?? null;
@@ -179,6 +180,7 @@ export class Layout {
     tab.panes().forEach(x => x.el.classList.toggle('active', x === p));
     this.renderTabs();
     this.sidebar.bind(p);
+    hooks.paneFocused(p);
     p.focus();
   }
 
@@ -226,6 +228,7 @@ export class Layout {
     else if (is('copy')) p.copySelection();
     else if (is('paste')) p.paste();
     else if (is('fullscreen')) this.toggleFullscreen();
+    else if (is('toggle_ai')) hooks.toggleAI();
     else if (e.ctrlKey && !e.shiftKey && !e.altKey && /^[1-9]$/.test(e.key)) {
       const t = this.tabs[Number(e.key) - 1];
       if (t) this.selectTab(t);

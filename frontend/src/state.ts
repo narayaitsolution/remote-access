@@ -12,6 +12,7 @@ export interface Settings {
   fontFamily: string; fontSize: number; scrollback: number; copyOnSelect: boolean;
   sidebarVisible: boolean; sidebarWidth: number; sidebarFollow: boolean;
   keepaliveSeconds: number; tmuxMouse: boolean; downloadDir: string;
+  aiVisible: boolean; aiWidth: number; aiProvider: string; aiModels: Record<string, string>;
   keys: Record<string, string>;
 }
 
@@ -46,4 +47,8 @@ export const hooks = {
   activePane: (): Pane | null => null,
   allPanes: (): Pane[] => [],
   enterPressed: (_p: Pane) => {},
+  paneFocused: (_p: Pane) => {},
+  paneDisposed: (_p: Pane) => {},
+  toggleAI: () => {},
+  filesChanged: () => {},
 };
