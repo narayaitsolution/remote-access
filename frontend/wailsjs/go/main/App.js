@@ -70,6 +70,10 @@ export function EditLocally(arg1, arg2) {
   return window['go']['main']['App']['EditLocally'](arg1, arg2);
 }
 
+export function FileIcons(arg1) {
+  return window['go']['main']['App']['FileIcons'](arg1);
+}
+
 export function GetState() {
   return window['go']['main']['App']['GetState']();
 }

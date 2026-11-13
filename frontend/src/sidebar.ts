@@ -4,6 +4,7 @@ import {
   Remove, Rename, StopLocalEdit, Upload, UploadDialog,
 } from '../wailsjs/go/main/App';
 import { extOf, OFFICE_EXT } from './viewers';
+import { fileIcon, loadIcons } from './fileicons';
 import { ClipboardSetText, EventsOn, OnFileDrop } from '../wailsjs/runtime/runtime';
 import { icons } from './icons';
 import type { Pane } from './pane';
@@ -163,6 +164,8 @@ export class Sidebar {
       this.entries = (res.entries || []) as Entry[];
       if (!samePath) { this.selected.clear(); this.anchor = -1; }
       else for (const n of [...this.selected]) if (!this.entries.some(e => e.name === n)) this.selected.delete(n);
+      await loadIcons(this.entries.concat([{ name: '..', isDir: true } as Entry]));
+      if (seq !== this.loadSeq) return false;
       this.render();
       return true;
     } catch (e) {
@@ -188,7 +191,7 @@ export class Sidebar {
     this.pathInput.value = this.path;
     const rows: HTMLElement[] = [];
     if (this.path !== '/') {
-      const up = h('div', { class: 'sb-row up' }, h('span', { class: 'sb-icon', html: icons.folder }), h('span', { class: 'sb-name' }, '..'));
+      const up = h('div', { class: 'sb-row up' }, h('span', { class: 'sb-icon' }, fileIcon('..', true)), h('span', { class: 'sb-name' }, '..'));
       up.addEventListener('dblclick', () => this.goUp());
       rows.push(up);
     }
@@ -197,7 +200,7 @@ export class Sidebar {
         class: 'sb-row' + (e.isDir ? ' dir' : '') + (e.name.startsWith('.') ? ' hiddenfile' : ''),
         title: `${e.name}\n${e.mode}  ${fmtDate(e.modTime)}${e.isDir ? '' : '  ' + fmtSize(e.size)}`,
       },
-        h('span', { class: 'sb-icon', html: e.isDir ? icons.folder : icons.file }),
+        h('span', { class: 'sb-icon' }, fileIcon(e.name, e.isDir)),
         h('span', { class: 'sb-name' }, e.name + (e.isLink ? ' →' : '')),
         h('span', { class: 'sb-size' }, e.isDir ? '' : fmtSize(e.size)));
       row.dataset.name = e.name;

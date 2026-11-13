@@ -36,6 +36,8 @@ export function DownloadDialog(arg1:string,arg2:Array<string>):Promise<void>;
 
 export function EditLocally(arg1:string,arg2:string):Promise<main.LocalEdit>;
 
+export function FileIcons(arg1:Array<string>):Promise<Record<string, string>>;
+
 export function GetState():Promise<main.AppState>;
 
 export function GetVersion():Promise<string>;

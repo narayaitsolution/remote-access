@@ -1,6 +1,6 @@
 # Remote Terminal
 
-**Current version: 8.1** — see [Version history](#version-history).
+**Current version: 8.2** — see [Version history](#version-history).
 
 A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a focused alternative to MobaXterm for people who mostly live in `ssh` + `tmux`.
 
@@ -225,6 +225,7 @@ To release a new version: change `appVersion` in `version.go` (and `productVersi
 | `frontend/src/setup.ts`, `deps.go` | First-run check and winget installation of supporting programs |
 | `localedit.go`, `winshell_*.go` | Editing files in Windows applications with automatic upload |
 | `ai_openai.go` | OpenAI-compatible providers (base URL + API key) |
+| `fileicon*.go`, `frontend/src/fileicons.ts` | File-type icons taken from Windows (Explorer icons) |
 | `version.go` | Application version |
 
 ## Version history
@@ -233,6 +234,7 @@ Versioning scheme: the **major** number goes up when a new feature is added; the
 
 | Version | Type | Changes |
 |---|---|---|
+| **8.2** | Minor | File icons in the SFTP sidebar now match Windows Explorer: each file type shows the icon of the program it opens with (PDF, Word, Excel, PowerPoint, text, archives, Python, …), with built-in icons as fallback |
 | **8.1** | Minor | Fixed a grey box covering the title of the first tab ("Pilih…") on the server picker; `build.ps1` names the executable after the version (`RemoteTerminal-8.1.exe`) |
 | **8.0** | Feature | PDF viewer, Markdown preview/edit, image viewer; editing Word/Excel/PowerPoint in the Windows application with automatic upload on save; *Open with Windows application* for any file; first-run check of supporting programs with one-click winget installation (Claude Code, Codex, LibreOffice) and *Login* buttons; version shown in the window title |
 | **7.0** | Feature | AI providers via any OpenAI-compatible URL + API key (OpenAI, OpenRouter, Groq, DeepSeek, Ollama, LM Studio…), models listed in the AI panel, keys stored encrypted |
@@ -272,6 +274,7 @@ Aplikasi terminal SSH portable untuk Windows dengan sidebar file SFTP, alternati
 - **Blok teks = langsung tersalin** ke clipboard Windows, tanpa spasi kosong di ujung baris dan dengan baris baru format Windows sehingga teks multi-baris rapi saat di-paste. **Klik kanan = paste.**
 - **Tab dan split vertikal/horizontal** dengan shortcut cepat; setiap sesi baru dibuka dengan halaman pemilihan server.
 - **Sidebar SFTP** yang bisa ditampilkan/disembunyikan, secara default **mengikuti folder kerja terminal**, dan bisa dinavigasi sendiri.
+- **Ikon file sesuai aplikasinya** (PDF, Word, Excel, PowerPoint, dll.), sama seperti di Windows Explorer.
 - **Toolbar ikon kecil satu baris:** naik folder, upload, download, file baru, folder baru, rename, hapus, refresh, ikuti terminal.
 - **Menu klik kanan** untuk semua operasi file, pilih banyak file sekaligus, upload/download folder dengan progress bar, dan **drag & drop dari Windows Explorer** untuk upload.
 - **Editor file seperti VS Code**: double-click file di sidebar untuk membukanya di tab baru (nomor baris, warna sintaks), `Ctrl+S` untuk menyimpan ke server, konfirmasi saat menutup tab yang belum disimpan.
@@ -288,6 +291,7 @@ Skema: angka **mayor** naik bila ada fitur baru, angka **minor** naik untuk perb
 
 | Versi | Ringkasan |
 |---|---|
+| 8.2 | Ikon file di sidebar FTP mengikuti ikon aplikasinya seperti di Windows Explorer (PDF, Word, Excel, PowerPoint, teks, arsip, Python, dll.) |
 | 8.1 | Perbaikan kotak abu-abu yang menutupi judul tab pertama di halaman pilih server; nama file .exe kini sesuai versi (`RemoteTerminal-8.1.exe`) |
 | 8.0 | Viewer PDF/Markdown/gambar, edit file Office di aplikasi Windows, cek & pasang program pendukung |
 | 7.0 | Provider AI OpenAI-compatible (URL + API key) |
