@@ -2,7 +2,7 @@
 // user's own login; its tool calls arrive here, are shown to the user, need
 // approval when they change something, and are executed in the visible terminal.
 import {
-  AIProviders, AIReset, AISend, AIStop, AIToolResult, CaptureTmux, Info, ListDir, ReadFileText, WriteFileText,
+  AIProviders, AIReset, AISend, AIStop, AIToolResult, CaptureTmux, Info, ListDir, ReadFileText, RunHidden, WriteFileText,
 } from '../wailsjs/go/main/App';
 import { EventsOn } from '../wailsjs/runtime/runtime';
 import type { Pane } from './pane';
@@ -37,7 +37,8 @@ interface RateWindow { utilization: number; resetsAt: number }
 /** Tools that only look; everything else changes something. Both need permission. */
 const READ_TOOLS = new Set(['read_screen', 'wait_for_screen', 'list_dir', 'read_file']);
 const TOOL_LABEL: Record<string, string> = {
-  read_screen: 'Membaca layar', run_command: 'Menjalankan perintah', send_keys: 'Mengetik / mengirim tombol',
+  read_screen: 'Membaca layar', run_command: 'Menjalankan perintah di terminal', send_keys: 'Mengetik ke layar',
+  run_background: 'Menjalankan perintah (latar belakang)',
   wait_for_screen: 'Memantau layar', list_dir: 'Melihat folder', read_file: 'Membaca file', write_file: 'Menulis file',
 };
 const SHELLS = new Set(['bash', 'sh', 'dash', 'zsh', 'fish', 'ksh', 'tcsh', 'csh', 'ash', '-bash', '-sh', '-zsh']);
@@ -472,7 +473,7 @@ export class AIPanel {
         const fg = await foreground(p);
         if (fg && !SHELLS.has(fg)) {
           throw new Error(`"${fg}" is running in the foreground of the terminal, not the shell prompt, so the command was NOT typed. ` +
-            `Use send_keys to interact with ${fg} (or to exit it), or ask the user.`);
+            `Use run_background to run it without touching the user's screen. Only type into ${fg} if the user explicitly asked you to.`);
         }
         return runCommand(p, String(a.command || ''), clamp(Number(a.timeout_seconds) || 60, 5, 600));
       }
@@ -481,6 +482,8 @@ export class AIPanel {
         await sleep(clamp(Number(a.wait_ms) || 800, 100, 10000));
         return 'Keys sent. Screen now:\n' + await readScreen(p, 0);
       }
+      case 'run_background':
+        return RunHidden(p.sessionId, String(a.command || ''), clamp(Number(a.timeout_seconds) || 60, 5, 600));
       case 'wait_for_screen':
         return waitForScreen(p, String(a.until_text || ''), clamp(Number(a.seconds) || 30, 1, 300), clamp(Number(a.stable_ms) || 2000, 500, 30000));
       case 'list_dir': {
@@ -598,7 +601,7 @@ const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n
 function summarize(name: string, a: any, max: number): string {
   let s: string;
   switch (name) {
-    case 'run_command': s = String(a.command ?? ''); break;
+    case 'run_command': case 'run_background': s = String(a.command ?? ''); break;
     case 'send_keys': s = String(a.keys ?? ''); break;
     case 'write_file': s = `${a.path}\n────\n${String(a.content ?? '')}`; break;
     case 'read_file': case 'list_dir': s = String(a.path ?? ''); break;

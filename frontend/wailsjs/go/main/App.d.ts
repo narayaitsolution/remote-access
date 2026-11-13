@@ -54,6 +54,8 @@ export function Rename(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function Resize(arg1:string,arg2:number,arg3:number):Promise<void>;
 
+export function RunHidden(arg1:string,arg2:string,arg3:number):Promise<string>;
+
 export function SaveProfile(arg1:main.ProfileInput):Promise<main.ProfileView>;
 
 export function SaveSettings(arg1:main.Settings):Promise<void>;

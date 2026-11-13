@@ -62,12 +62,13 @@ A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a
 - Choose the provider and **model** per provider (Claude: opus / sonnet / haiku or a full model id; Codex: the models from your Codex installation). "Model lain…" accepts any model name.
 - **It is a normal chat by default** — ask anything, even without a server connection. Only when a request needs the server does the AI use the tools the app provides, and **every server access asks your permission first**:
   - read the screen (including tmux history) and see which program is in the foreground,
-  - run commands — **typed into your visible terminal so you can watch them run**, with the exit code and output returned to the AI,
-  - type text and keys into whatever is running — e.g. **give instructions to opencode running in tmux**, answer prompts, navigate TUIs, `Ctrl+C` (supports Enter, Tab, Shift+Tab, Esc, arrows, F1–F12, Ctrl+key, Alt+key),
+  - run commands **in the background** (a separate hidden SSH channel in the terminal's current directory) — the default, so your screen is left alone,
+  - run commands **typed into your visible terminal** when you ask for that, so you can watch them run,
+  - type text and keys into whatever is running — e.g. **give instructions to opencode running in tmux**, answer prompts, navigate TUIs, `Ctrl+C` (supports Enter, Tab, Shift+Tab, Esc, arrows, F1–F12, Ctrl+key, Alt+key) — **only when you explicitly ask it to**,
   - watch the screen until some text appears or it stops changing (e.g. wait for opencode's answer),
   - list, read and write files over SFTP.
 - Permissions are split into **read** (screen, files, folders) and **change** (commands, keys, writing files). Each request appears on the terminal itself and in the panel with *Allow*, *Deny*, or *Allow all reads / changes* for that chat; two checkboxes show and toggle the current choice.
-- Safety: `run_command` is refused automatically when a program (opencode, vim, top…) is in the foreground instead of the shell prompt, so a shell command is never typed into an application by mistake — the AI must use keys instead.
+- **Your screen is yours**: both Claude and Codex are instructed (as system/developer instructions) not to type into the terminal unless you ask. Asking "pwd" while opencode is open runs `pwd` in the background instead of typing into opencode. As a hard safety net, typing a shell command is refused whenever a program (opencode, vim, top…) is in the foreground instead of the shell prompt.
 - While the AI works, the terminal gets a purple frame and a status badge ("AI: running command — df -h"), so you always see what it is doing.
 - **Usage** is shown in the panel: for Claude, your subscription's 5-hour and 7-day limit utilisation (with reset time) plus tokens and estimated cost of the chat; for Codex, the tokens used by the chat.
 - Each terminal pane has its own chat; *New chat* starts over. The AI CLIs run in an empty temporary folder with their own local tools disabled, so they can only act on the remote server through the app's tools (Codex additionally runs with a read-only sandbox).

@@ -525,3 +525,27 @@ func (a *App) WriteFileText(id, path, content string) error {
 	}
 	return f.Close()
 }
+
+// RunHidden runs a command on a separate SSH channel (not on the user's
+// screen), starting in the terminal's current directory.
+func (a *App) RunHidden(id, command string, timeoutSec int) (string, error) {
+	s, err := a.session(id)
+	if err != nil {
+		return "", err
+	}
+	if timeoutSec < 5 || timeoutSec > 600 {
+		timeoutSec = 60
+	}
+	script := command
+	if info, err := s.info(); err == nil && info.Cwd != "" {
+		script = "cd " + shellQuote(info.Cwd) + " 2>/dev/null; " + command
+	}
+	out, code, err := s.runCombined(script, time.Duration(timeoutSec)*time.Second)
+	if err != nil {
+		return "", err
+	}
+	if len(out) > 30000 {
+		out = "[... output awal dipotong]\n" + out[len(out)-30000:]
+	}
+	return fmt.Sprintf("exit code: %d\n%s", code, strings.TrimRight(out, "\n")), nil
+}

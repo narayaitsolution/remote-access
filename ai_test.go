@@ -129,3 +129,66 @@ func TestAIChatNoTools(t *testing.T) {
 	}
 	t.Fatal("timeout")
 }
+
+// Reproduces: opencode is on screen and the user asks "pwd". The AI must not
+// type into the screen; it should use run_background.
+func TestAIDoesNotTypeIntoForegroundApp(t *testing.T) {
+	provider := os.Getenv("RT_AI_TEST")
+	if provider == "" {
+		t.Skip("set RT_AI_TEST=claude or RT_AI_TEST=codex to run")
+	}
+	model := map[string]string{"claude": "haiku"}[provider]
+	a := NewApp()
+	var mu sync.Mutex
+	var lines, used []string
+	a.emitHook = func(name string, data any) {
+		switch {
+		case name == "ai:tool":
+			m := data.(map[string]any)
+			tool := m["name"].(string)
+			mu.Lock()
+			used = append(used, tool)
+			mu.Unlock()
+			res, isErr := "", false
+			switch tool {
+			case "read_screen":
+				res = "[foreground program: opencode]\nopencode v1.0 — ask anything\n> "
+			case "run_background":
+				res = "exit code: 0\n/home/johan/app"
+			default:
+				res, isErr = "denied by test", true
+			}
+			go a.AIToolResult(m["reqId"].(string), isErr, res)
+		case strings.HasPrefix(name, "ai:line:"):
+			mu.Lock()
+			lines = append(lines, data.(string))
+			mu.Unlock()
+		}
+	}
+	msg := "[Terminal: tmux session \"main\", foreground program: opencode, directory: /home/johan/app]\npwd"
+	if err := a.AISend("chat3", provider, model, msg, "The user's terminal is an SSH session to server \"test\" (johan@10.0.0.1:22)."); err != nil {
+		t.Fatal(err)
+	}
+	defer a.shutdownAI()
+	deadline := time.Now().Add(4 * time.Minute)
+	for time.Now().Before(deadline) {
+		mu.Lock()
+		all := strings.Join(lines, "\n")
+		tools := append([]string(nil), used...)
+		mu.Unlock()
+		if strings.Contains(all, `"type":"result"`) || strings.Contains(all, `"turn.completed"`) {
+			t.Logf("tools used: %v", tools)
+			for _, u := range tools {
+				if u == "send_keys" || u == "run_command" {
+					t.Fatalf("AI typed into the user's screen (%s). Tools: %v", u, tools)
+				}
+			}
+			if !strings.Contains(all, "/home/johan/app") {
+				t.Fatalf("answer lacks the directory:\n%s", all)
+			}
+			return
+		}
+		time.Sleep(300 * time.Millisecond)
+	}
+	t.Fatal("timeout")
+}

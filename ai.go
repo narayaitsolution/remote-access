@@ -74,12 +74,17 @@ func num(desc string) map[string]any { return map[string]any{"type": "number", "
 var aiTools = []mcpTool{
 	{"read_screen", "Read the text currently visible in the user's terminal (the remote server shell, or a program running in it such as opencode, vim or htop, often inside tmux). Also reports which program is in the foreground. Optionally include earlier history lines. Needs the user's permission.",
 		obj(map[string]any{"history_lines": num("Extra lines of scrollback/history above the visible screen to include (0-2000). Default 0.")})},
-	{"run_command", "Type a shell command into the user's visible terminal on the remote server, press Enter, wait for it to finish and return its output and exit code. The user watches it run and must approve it first. Only works when the shell prompt is in the foreground; if a program (e.g. opencode, vim, top) is running, this fails and you must use send_keys instead. Single line only; use commands that finish on their own (no editors/pagers; add --no-pager). Working directory and environment persist between calls.",
+	{"run_background", "Run a shell command on the remote server in a separate, hidden session. It does NOT appear on or interfere with the user's screen, and starts in the terminal's current directory. This is the default way to run commands for information or work (e.g. pwd, ls, df -h, systemctl status, git log). Needs the user's permission. Non-interactive commands only; no shell aliases or state from the user's terminal.",
+		obj(map[string]any{
+			"command":         str("The command line to run (bash)."),
+			"timeout_seconds": num("Maximum run time (5-600). Default 60."),
+		}, "command")},
+	{"run_command", "Type a shell command into the user's VISIBLE terminal, press Enter, wait for it to finish and return its output and exit code. Use it only when the user wants to see/run it in their terminal (or the change must happen in that shell, e.g. cd, activating a virtualenv); otherwise use run_background. Only works when the shell prompt is in the foreground; it is refused while a program such as opencode, vim or top is running. Single line; commands that finish on their own (no editors/pagers). Needs the user's permission.",
 		obj(map[string]any{
 			"command":         str("The exact command line to run (bash), on one line."),
 			"timeout_seconds": num("How long to wait for completion (5-600). Default 60. If it is still running afterwards, the current screen is returned."),
 		}, "command")},
-	{"send_keys", "Type text and/or keys into whatever is running in the user's terminal — the shell or an interactive program (e.g. write a prompt into opencode, answer y/n, navigate a TUI, quit a pager, stop a program). Needs the user's permission. Special keys in angle brackets: <Enter> <Tab> <S-Tab> <Esc> <Backspace> <Delete> <Up> <Down> <Left> <Right> <Home> <End> <PageUp> <PageDown> <F1>..<F12> <Space>, <C-x> for Ctrl+letter (e.g. <C-c>, <C-d>, <C-b> is the tmux prefix), <M-x> for Alt+letter. Returns the screen after wait_ms.",
+	{"send_keys", "Type text and/or keys into whatever is running in the user's terminal. Use it ONLY when the user explicitly asks you to interact with the program on their screen (e.g. \"tell opencode to …\", \"press q\", \"answer yes\", \"stop it with Ctrl+C\"). NEVER use it to run a shell command for your own purposes (use run_background), and never type into an application such as opencode unless the user asked for that. Needs the user's permission. Special keys in angle brackets: <Enter> <Tab> <S-Tab> <Esc> <Backspace> <Delete> <Up> <Down> <Left> <Right> <Home> <End> <PageUp> <PageDown> <F1>..<F12> <Space>, <C-x> for Ctrl+letter (e.g. <C-c>, <C-d>, <C-b> is the tmux prefix), <M-x> for Alt+letter. Returns the screen after wait_ms.",
 		obj(map[string]any{
 			"keys":    str("Text and special keys, e.g. \"q\", \"y<Enter>\", \"<C-c>\", \"fix the failing test<Enter>\"."),
 			"wait_ms": num("Milliseconds to wait before reading the screen back (100-10000). Default 800."),
@@ -362,10 +367,13 @@ Default to being a normal chat assistant: answer questions, explain, write code 
 
 Use the remote-terminal tools only when the request actually needs the server or the terminal (e.g. "check why nginx fails", "what is on my screen", "read /etc/hosts", "type this into opencode"). Every tool use asks the user for permission, so use them purposefully and say briefly why before using one.
 The tools act on the remote server and the user's terminal only, never on the user's local Windows PC:
-- read_screen: see the terminal, including programs running in it (opencode, vim, htop…) and which program is in the foreground.
-- run_command: run a shell command visibly in the terminal (only when the shell prompt is in the foreground).
-- send_keys + wait_for_screen: interact with whatever is running — e.g. type a request into opencode and press Enter, then wait for its answer; answer prompts; navigate TUIs; <C-c> to stop. Read the screen first so you know what is running and where the input focus is.
+- run_background: run commands in a hidden session (default for any command, e.g. "pwd", "ls", checking a service). Does not touch the user's screen.
 - list_dir / read_file / write_file: files on the server.
+- read_screen: see the terminal, including programs running in it (opencode, vim, htop…) and which program is in the foreground.
+- run_command: type a command into the user's visible shell — only when the user asks to run it in their terminal, or the change must happen in that shell.
+- send_keys + wait_for_screen: interact with the program on the user's screen — e.g. type a request into opencode, answer a prompt, <C-c>.
+
+THE USER'S SCREEN BELONGS TO THE USER. Do not type into it (send_keys / run_command) unless the user explicitly asked for that. In particular, if a program such as opencode, vim or htop is in the foreground, never type into it on your own initiative — a request like "run pwd" or "check the disk" means run_background, not typing into that program. Only interact with that program when the user says so (e.g. "tell opencode to …").
 Ask before destructive or irreversible actions (deleting data, restarting production services, firewall changes). If the user denies a tool, do not retry it; continue the conversation or ask what they prefer.
 Reply in the same language the user writes in.`
 }
@@ -451,10 +459,11 @@ func (a *App) runCodex(c *aiChat, text string) error {
 	}
 	session, model, context := c.session, c.model, c.context
 	a.ai.mu.Unlock()
-	path, err := exec.LookPath("codex")
+	path, extraEnv, native, err := codexBinary()
 	if err != nil {
-		return errors.New("Codex (codex) tidak ditemukan di PATH")
+		return err
 	}
+	instructions := aiSystemPrompt(context) + "\nNever use your own built-in shell tool: it runs on the user's local Windows PC, not on the server."
 	args := []string{"exec"}
 	if session != "" {
 		args = append(args, "resume", session)
@@ -467,13 +476,19 @@ func (a *App) runCodex(c *aiChat, text string) error {
 		// Approval happens in our UI; Codex must not block on its own prompt.
 		"-c", `mcp_servers.rt.default_tools_approval_mode="approve"`,
 	)
+	if native {
+		// Rules as real developer instructions (same strength as Claude's system prompt).
+		// JSON string syntax is a valid TOML basic string.
+		q, _ := json.Marshal(instructions)
+		args = append(args, "-c", "developer_instructions="+string(q))
+	}
 	if model != "" {
 		args = append(args, "-m", model)
 	}
 	args = append(args, "-") // prompt from stdin
 	cmd := exec.Command(path, args...)
 	cmd.Dir = aiWorkDir()
-	cmd.Env = append(os.Environ(), "RT_MCP_TOKEN="+a.ai.token)
+	cmd.Env = append(append(os.Environ(), extraEnv...), "RT_MCP_TOKEN="+a.ai.token)
 	hideWindow(cmd)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -483,12 +498,42 @@ func (a *App) runCodex(c *aiChat, text string) error {
 		return err
 	}
 	prompt := text
-	if session == "" {
-		prompt = "<instructions>\n" + aiSystemPrompt(context) + "\nNever use your own shell tool; it runs on the user's local PC, not the server.\n</instructions>\n\n" + text
+	if !native && session == "" {
+		// Fallback when only the npm .cmd shim is available (cmd.exe cannot carry the long argument).
+		prompt = "<instructions>\n" + instructions + "\n</instructions>\n\n" + text
 	}
 	io.WriteString(stdin, prompt)
 	stdin.Close()
 	return nil
+}
+
+// codexBinary finds the native codex.exe behind the npm shim, so arguments are
+// passed directly instead of through cmd.exe. It sets the same environment the
+// npm launcher (bin/codex.js) sets. native=false means only the shim was found.
+func codexBinary() (path string, env []string, native bool, err error) {
+	shim, err := exec.LookPath("codex")
+	if err != nil {
+		return "", nil, false, errors.New("Codex (codex) tidak ditemukan di PATH")
+	}
+	if strings.EqualFold(filepath.Ext(shim), ".exe") {
+		return shim, nil, true, nil
+	}
+	root := filepath.Join(filepath.Dir(shim), "node_modules", "@openai", "codex")
+	for _, t := range []struct{ pkg, triple string }{
+		{"codex-win32-x64", "x86_64-pc-windows-msvc"},
+		{"codex-win32-arm64", "aarch64-pc-windows-msvc"},
+	} {
+		for _, vendor := range []string{
+			filepath.Join(root, "node_modules", "@openai", t.pkg, "vendor"),
+			filepath.Join(root, "vendor"),
+		} {
+			exe := filepath.Join(vendor, t.triple, "bin", "codex.exe")
+			if _, err := os.Stat(exe); err == nil {
+				return exe, []string{"CODEX_MANAGED_PACKAGE_ROOT=" + root, "CODEX_MANAGED_BY_NPM=1"}, true, nil
+			}
+		}
+	}
+	return shim, nil, false, nil
 }
 
 func (a *App) startAgent(c *aiChat, cmd *exec.Cmd, stdin io.WriteCloser) error {

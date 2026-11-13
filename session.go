@@ -532,3 +532,40 @@ func (a *App) dial(p Profile, pw string) (*ssh.Client, error) {
 	conn.SetDeadline(time.Time{})
 	return ssh.NewClient(c, chans, reqs), nil
 }
+
+// runCombined runs a command on its own channel and returns stdout+stderr and the exit code.
+func (s *Session) runCombined(cmd string, timeout time.Duration) (string, int, error) {
+	s.mu.Lock()
+	client, state := s.client, s.state
+	s.mu.Unlock()
+	if client == nil || state != stateConnected {
+		return "", 0, errors.New("tidak terhubung")
+	}
+	sess, err := client.NewSession()
+	if err != nil {
+		return "", 0, err
+	}
+	defer sess.Close()
+	type result struct {
+		out  []byte
+		code int
+		err  error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		out, err := sess.CombinedOutput(cmd)
+		var ee *ssh.ExitError
+		if errors.As(err, &ee) {
+			ch <- result{out, ee.ExitStatus(), nil}
+			return
+		}
+		ch <- result{out, 0, err}
+	}()
+	select {
+	case r := <-ch:
+		return string(r.out), r.code, r.err
+	case <-time.After(timeout):
+		sess.Signal(ssh.SIGTERM)
+		return "", 0, fmt.Errorf("perintah masih berjalan setelah %s dan dihentikan", timeout)
+	}
+}

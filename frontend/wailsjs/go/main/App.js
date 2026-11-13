@@ -106,6 +106,10 @@ export function Resize(arg1, arg2, arg3) {
   return window['go']['main']['App']['Resize'](arg1, arg2, arg3);
 }
 
+export function RunHidden(arg1, arg2, arg3) {
+  return window['go']['main']['App']['RunHidden'](arg1, arg2, arg3);
+}
+
 export function SaveProfile(arg1) {
   return window['go']['main']['App']['SaveProfile'](arg1);
 }
