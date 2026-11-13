@@ -17,8 +17,13 @@ A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a
 - Add, edit, duplicate, delete and reorder servers.
 - Optional per-server tmux session: connect straight into (or create) a named tmux session.
 
+### Login: password or SSH key
+- Each server uses either a **password** or an **SSH private key** (OpenSSH/PEM format such as `id_ed25519` or `id_rsa`; a browse button opens in `~/.ssh`).
+- Encrypted keys are supported: the passphrase is asked only when the key needs one, and can be saved like a password.
+- Clear messages for common mistakes: wrong passphrase, key not in the server's `authorized_keys`, choosing the `.pub` file, or a PuTTY `.ppk` file (export it to OpenSSH with PuTTYgen first).
+
 ### Passwords
-- Saving the password is optional, per server.
+- Saving the password (or key passphrase) is optional, per server.
 - Saved passwords are encrypted with **Windows DPAPI**: only your Windows account on your PC can decrypt them. Copying `config.toml` to another machine does not reveal them.
 - If not saved, you are asked for the password on every connect (and it is kept in memory only for automatic reconnects).
 
@@ -109,11 +114,20 @@ Created automatically on first start. You can edit it with any text editor while
   user = "deploy"
   password = "dpapi:AQAAANCMnd8BFdER..."   # encrypted; omit to be asked each time
   tmux_session = "main"                    # optional: auto-attach/create on connect
+
+[[profile]]
+  id = "8c1d0e4f5a22"
+  name = "Lab"
+  host = "10.0.0.5"
+  port = 22
+  user = "admin"
+  auth = "key"                                   # log in with an SSH key
+  key_path = 'C:\Users\me\.ssh\id_ed25519'       # "password" then holds the encrypted passphrase, if any
 ```
 
 ## Current limitations
 
-- Password / keyboard-interactive login only (no SSH private keys or ssh-agent yet).
+- No ssh-agent / Pageant support; PuTTY `.ppk` keys must be exported to OpenSSH format.
 - Direct TCP connections only (no `ProxyCommand` / jump host / Cloudflare Tunnel yet).
 - Dragging files *from* the sidebar *to* Explorer is not supported; use Download (toolbar or right-click).
 - Windows only (password encryption uses DPAPI).
@@ -144,6 +158,7 @@ wails build -clean -trimpath -ldflags "-s -w"
 | `session.go` | SSH connection, PTY, keepalive, auto-reconnect, tmux/cwd tracking |
 | `files.go` | SFTP operations and transfers with progress |
 | `hostkey.go` | `known_hosts` verification |
+| `auth.go` | Password / SSH key authentication |
 | `config.go`, `secret_*.go` | `config.toml` and DPAPI password encryption |
 | `session_test.go` | Integration tests |
 | `frontend/src/layout.ts` | Tabs, splits, focus, keyboard shortcuts |
@@ -168,6 +183,7 @@ Aplikasi terminal SSH portable untuk Windows dengan sidebar file SFTP, alternati
 ### Fitur utama
 - **Satu file `.exe` tanpa instalasi.** Konfigurasi disimpan di file teks `config.toml` di samping `.exe`.
 - **Halaman pemilihan server** di setiap tab/split baru: cari, pilih dengan panah, `Enter` untuk konek. Server bisa ditambah, diedit, diduplikat, dihapus, dan diurutkan.
+- **Login dengan password atau SSH key** (id_rsa, id_ed25519, termasuk key yang memakai passphrase).
 - **Password opsional disimpan**, dan jika disimpan **dienkripsi** dengan akun Windows Anda (DPAPI). Jika tidak disimpan, password ditanya setiap konek.
 - **Tahan koneksi tidak stabil:** keepalive mendeteksi koneksi putus/macet, aplikasi menyambung ulang sendiri lalu **kembali ke sesi tmux terakhir**. Jika tmux tidak ada, tetap login ke shell biasa.
 - **Scroll mouse langsung menggulir history tmux** tanpa menekan Shift.
@@ -183,6 +199,6 @@ Aplikasi terminal SSH portable untuk Windows dengan sidebar file SFTP, alternati
 `Ctrl+Shift+T` tab baru · `Ctrl+Shift+E` split vertikal · `Ctrl+Shift+O` split horizontal · `Ctrl+Shift+W` tutup · `Alt+Panah` pindah pane · `Ctrl+Tab` pindah tab · `Ctrl+Shift+B` sidebar · `F11` layar penuh. Semua bisa diubah di `config.toml`.
 
 ### Keterbatasan saat ini
-- Login hanya dengan password (belum mendukung SSH key).
+- SSH key harus berformat OpenSSH/PEM; file PuTTY `.ppk` perlu di-export dulu lewat PuTTYgen.
 - Belum mendukung koneksi lewat proxy/jump host/Cloudflare Tunnel.
 - Download dengan drag dari sidebar ke Explorer belum didukung; gunakan tombol/menu Download.
