@@ -130,7 +130,7 @@ export class Layout {
     for (const t of this.tabs) {
       const panes = t.panes();
       const p = t.active;
-      const dot = h('span', { class: 'dot ' + p.state });
+      const dot = h('span', { class: 'dot st-' + p.state });
       const label = h('span', { class: 'tab-label', title: p.editor?.path ?? '' }, p.title + (panes.length > 1 ? ` (${panes.length})` : ''));
       const close = h('span', { class: 'tab-close', html: icons.x, title: 'Tutup tab' });
       close.addEventListener('click', e => { e.stopPropagation(); this.closeTab(t); });

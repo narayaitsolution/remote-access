@@ -1,6 +1,6 @@
 # Remote Terminal
 
-**Current version: 8.0** — see [Version history](#version-history).
+**Current version: 8.1** — see [Version history](#version-history).
 
 A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a focused alternative to MobaXterm for people who mostly live in `ssh` + `tmux`.
 
@@ -189,9 +189,11 @@ Requirements: [Go](https://go.dev/dl/) 1.24+, [Node.js](https://nodejs.org/) 20+
 
 ```powershell
 go install github.com/wailsapp/wails/v2/cmd/wails@latest
-wails build -trimpath -ldflags "-s -w"
-# → build\bin\RemoteTerminal.exe
+.\build.ps1
+# → build\bin\RemoteTerminal-<version>.exe   (version from version.go, e.g. RemoteTerminal-8.1.exe)
 ```
+
+To release a new version: change `appVersion` in `version.go` (and `productVersion` in `wails.json`), add a row to [Version history](#version-history), build with `.\build.ps1`, then tag the commit `v<version>`.
 
 - Development mode with hot reload: `wails dev`
 - Tests (in-process fake SSH server covering login, reconnect into tmux, keepalive timeout, SFTP transfers, password encryption): `go test ./...`
@@ -231,6 +233,7 @@ Versioning scheme: the **major** number goes up when a new feature is added; the
 
 | Version | Type | Changes |
 |---|---|---|
+| **8.1** | Minor | Fixed a grey box covering the title of the first tab ("Pilih…") on the server picker; `build.ps1` names the executable after the version (`RemoteTerminal-8.1.exe`) |
 | **8.0** | Feature | PDF viewer, Markdown preview/edit, image viewer; editing Word/Excel/PowerPoint in the Windows application with automatic upload on save; *Open with Windows application* for any file; first-run check of supporting programs with one-click winget installation (Claude Code, Codex, LibreOffice) and *Login* buttons; version shown in the window title |
 | **7.0** | Feature | AI providers via any OpenAI-compatible URL + API key (OpenAI, OpenRouter, Groq, DeepSeek, Ollama, LM Studio…), models listed in the AI panel, keys stored encrypted |
 | **6.0** | Feature | Built-in file editor (Monaco, like VS Code): line numbers, syntax highlighting, `Ctrl+S` save, unsaved-changes prompt on close, conflict detection |
@@ -285,6 +288,7 @@ Skema: angka **mayor** naik bila ada fitur baru, angka **minor** naik untuk perb
 
 | Versi | Ringkasan |
 |---|---|
+| 8.1 | Perbaikan kotak abu-abu yang menutupi judul tab pertama di halaman pilih server; nama file .exe kini sesuai versi (`RemoteTerminal-8.1.exe`) |
 | 8.0 | Viewer PDF/Markdown/gambar, edit file Office di aplikasi Windows, cek & pasang program pendukung |
 | 7.0 | Provider AI OpenAI-compatible (URL + API key) |
 | 6.0 | Editor file seperti VS Code |
