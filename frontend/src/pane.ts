@@ -179,7 +179,8 @@ export class Pane {
 
   /** Start a new connection from the picker. */
   async start(p: ProfileView, password = "", save = false): Promise<void> {
-    if (!p.hasPassword && !password) {
+    // Key logins try without asking; a passphrase is requested only if the key needs one.
+    if (p.authType !== 'key' && !p.hasPassword && !password) {
       const r = await askPassword(p);
       if (!r) return;
       password = r.password; save = r.save;

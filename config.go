@@ -37,7 +37,16 @@ type Profile struct {
 	Port        int    `toml:"port"`
 	User        string `toml:"user"`
 	Password    string `toml:"password,omitempty"` // "dpapi:<base64>" — encrypted for the current Windows user
+	AuthType    string `toml:"auth,omitempty"`     // "password" (default) or "key"; for "key", Password holds the key passphrase
+	KeyPath     string `toml:"key_path,omitempty"` // private key file, e.g. C:/Users/me/.ssh/id_ed25519
 	TmuxSession string `toml:"tmux_session,omitempty"`
+}
+
+func (p Profile) authType() string {
+	if p.AuthType == "key" {
+		return "key"
+	}
+	return "password"
 }
 
 // ProfileView is what the UI sees: never the password itself.
@@ -48,6 +57,8 @@ type ProfileView struct {
 	Port        int    `json:"port"`
 	User        string `json:"user"`
 	HasPassword bool   `json:"hasPassword"`
+	AuthType    string `json:"authType"`
+	KeyPath     string `json:"keyPath"`
 	TmuxSession string `json:"tmuxSession"`
 }
 
@@ -61,6 +72,8 @@ type ProfileInput struct {
 	Password     string `json:"password"`
 	SavePassword bool   `json:"savePassword"`
 	KeepPassword bool   `json:"keepPassword"` // editing: leave the stored password unchanged
+	AuthType     string `json:"authType"`
+	KeyPath      string `json:"keyPath"`
 	TmuxSession  string `json:"tmuxSession"`
 }
 
@@ -171,7 +184,7 @@ func saveConfig(path string, cfg Config) error {
 
 func (p Profile) view() ProfileView {
 	return ProfileView{ID: p.ID, Name: p.Name, Host: p.Host, Port: p.Port, User: p.User,
-		HasPassword: p.Password != "", TmuxSession: p.TmuxSession}
+		HasPassword: p.Password != "", AuthType: p.authType(), KeyPath: p.KeyPath, TmuxSession: p.TmuxSession}
 }
 
 func newID() string {

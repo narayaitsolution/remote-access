@@ -470,27 +470,38 @@ func (s *Session) closeSFTP() {
 	s.sftpMu.Unlock()
 }
 
+// authError marks failures the user can fix by entering a (different) password or passphrase.
+type authError struct{ msg string }
+
+func (e *authError) Error() string { return e.msg }
+
 func isAuthError(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "unable to authenticate")
+	var ae *authError
+	return err != nil && (errors.As(err, &ae) || strings.Contains(err.Error(), "unable to authenticate"))
+}
+
+// authMessage turns an auth failure into a message for the password prompt.
+func authMessage(p Profile, err error) string {
+	var ae *authError
+	if errors.As(err, &ae) {
+		return ae.msg
+	}
+	if p.authType() == "key" {
+		return "Key ditolak server. Pastikan public key sudah ada di ~/.ssh/authorized_keys di server."
+	}
+	return "Password salah atau ditolak server"
 }
 
 // dial opens an authenticated SSH connection.
 func (a *App) dial(p Profile, pw string) (*ssh.Client, error) {
 	addr := net.JoinHostPort(p.Host, strconv.Itoa(p.Port))
+	auths, err := authMethods(p, pw)
+	if err != nil {
+		return nil, err
+	}
 	cfg := &ssh.ClientConfig{
-		User: p.User,
-		Auth: []ssh.AuthMethod{
-			ssh.Password(pw),
-			ssh.KeyboardInteractive(func(name, instr string, qs []string, echos []bool) ([]string, error) {
-				ans := make([]string, len(qs))
-				for i := range qs {
-					if !echos[i] {
-						ans[i] = pw
-					}
-				}
-				return ans, nil
-			}),
-		},
+		User:              p.User,
+		Auth:              auths,
 		HostKeyCallback:   a.hostKeyCallback(),
 		HostKeyAlgorithms: a.knownHostAlgorithms(addr),
 		Timeout:           15 * time.Second,

@@ -58,6 +58,10 @@ export function OpenLocalFolder(arg1) {
   return window['go']['main']['App']['OpenLocalFolder'](arg1);
 }
 
+export function PickKeyFile() {
+  return window['go']['main']['App']['PickKeyFile']();
+}
+
 export function Reconnect(arg1, arg2) {
   return window['go']['main']['App']['Reconnect'](arg1, arg2);
 }

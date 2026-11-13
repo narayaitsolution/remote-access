@@ -7,6 +7,8 @@ export namespace main {
 	    port: number;
 	    user: string;
 	    hasPassword: boolean;
+	    authType: string;
+	    keyPath: string;
 	    tmuxSession: string;
 	
 	    static createFrom(source: any = {}) {
@@ -21,6 +23,8 @@ export namespace main {
 	        this.port = source["port"];
 	        this.user = source["user"];
 	        this.hasPassword = source["hasPassword"];
+	        this.authType = source["authType"];
+	        this.keyPath = source["keyPath"];
 	        this.tmuxSession = source["tmuxSession"];
 	    }
 	}
@@ -156,6 +160,8 @@ export namespace main {
 	    password: string;
 	    savePassword: boolean;
 	    keepPassword: boolean;
+	    authType: string;
+	    keyPath: string;
 	    tmuxSession: string;
 	
 	    static createFrom(source: any = {}) {
@@ -172,6 +178,8 @@ export namespace main {
 	        this.password = source["password"];
 	        this.savePassword = source["savePassword"];
 	        this.keepPassword = source["keepPassword"];
+	        this.authType = source["authType"];
+	        this.keyPath = source["keyPath"];
 	        this.tmuxSession = source["tmuxSession"];
 	    }
 	}

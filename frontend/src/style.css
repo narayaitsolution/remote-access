@@ -227,3 +227,14 @@ input, select, textarea { font: inherit; color: var(--text); }
 .toast.error .toast-icon { color: #f87171; }
 .toast.info .toast-icon { color: var(--accent); }
 @keyframes toast-in { from { opacity: 0; transform: translateX(12px); } }
+
+/* ---------- segmented control / input with button ---------- */
+.seg { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; width: fit-content; }
+.seg-btn {
+  padding: 5px 14px; border: 0; background: var(--bg); color: var(--text-2); cursor: pointer;
+}
+.seg-btn + .seg-btn { border-left: 1px solid var(--border); }
+.seg-btn.on { background: var(--accent); color: #fff; }
+.input-row { display: flex; gap: 6px; }
+.input-row input { flex: 1; min-width: 0; }
+.input-row .btn { padding: 4px 12px; }

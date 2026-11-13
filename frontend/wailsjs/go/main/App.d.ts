@@ -30,6 +30,8 @@ export function MoveProfile(arg1:string,arg2:number):Promise<void>;
 
 export function OpenLocalFolder(arg1:string):Promise<void>;
 
+export function PickKeyFile():Promise<string>;
+
 export function Reconnect(arg1:string,arg2:string):Promise<void>;
 
 export function Remove(arg1:string,arg2:Array<string>):Promise<void>;

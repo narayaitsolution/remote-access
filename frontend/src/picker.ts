@@ -1,5 +1,5 @@
 // Server picker shown in every new tab / split, plus profile editor and password prompt.
-import { DeleteProfile, MoveProfile, SaveProfile } from '../wailsjs/go/main/App';
+import { DeleteProfile, MoveProfile, PickKeyFile, SaveProfile } from '../wailsjs/go/main/App';
 import { main } from '../wailsjs/go/models';
 import { icons } from './icons';
 import { refreshState, store, type ProfileView } from './state';
@@ -65,7 +65,7 @@ export class Picker {
         h('div', { class: 'picker-text' },
           h('div', { class: 'picker-name' }, p.name),
           h('div', { class: 'picker-sub' }, `${p.user}@${p.host}${p.port !== 22 ? ':' + p.port : ''}` +
-            (p.tmuxSession ? `  · tmux: ${p.tmuxSession}` : '') + (p.hasPassword ? '' : '  · password ditanya'))),
+            (p.tmuxSession ? `  · tmux: ${p.tmuxSession}` : '') + (p.authType === 'key' ? `  · key: ${p.keyPath.split(/[\\/]/).pop()}` : p.hasPassword ? '' : '  · password ditanya'))),
         h('div', { class: 'picker-actions' },
           act(icons.arrowUp, 'Pindah ke atas', () => MoveProfile(p.id, -1).then(refreshState)),
           act(icons.arrowDown, 'Pindah ke bawah', () => MoveProfile(p.id, 1).then(refreshState)),
@@ -99,22 +99,56 @@ export class Picker {
 
 export async function editProfile(p: ProfileView | null): Promise<ProfileView | null> {
   const isEdit = !!p?.id;
-  const f = (label: string, input: HTMLElement, hint?: string) =>
+  const f = (label: string | Node, input: HTMLElement, hint?: string) =>
     h('label', {}, label, input, hint ? h('small', {}, hint) : null);
   const name = h('input', { type: 'text', value: p?.name ?? '', placeholder: 'contoh: Server Produksi' });
   const host = h('input', { type: 'text', value: p?.host ?? '', placeholder: 'IP atau hostname', spellcheck: 'false' });
   const port = h('input', { type: 'number', value: String(p?.port ?? 22), min: '1', max: '65535' });
   const user = h('input', { type: 'text', value: p?.user ?? '', spellcheck: 'false' });
-  const pass = h('input', { type: 'password', placeholder: p?.hasPassword ? '(tersimpan — kosongkan agar tidak berubah)' : '' });
+
+  // Login method: password or SSH key.
+  const origAuth = p?.authType === 'key' ? 'key' : 'password';
+  let auth: 'password' | 'key' = origAuth;
+  const authBtn = (v: 'password' | 'key', label: string) =>
+    h('button', { type: 'button', class: 'seg-btn', onclick: () => { auth = v; syncAuth(); } }, label);
+  const btnPw = authBtn('password', 'Password'), btnKey = authBtn('key', 'SSH key');
+  const keyPath = h('input', { type: 'text', value: p?.keyPath ?? '', placeholder: 'C:\Users\…\.ssh\id_ed25519', spellcheck: 'false' });
+  const browse = h('button', { type: 'button', class: 'btn', onclick: async () => {
+    const f = await PickKeyFile().catch(() => '');
+    if (f) keyPath.value = f;
+  } }, 'Pilih…');
+  const keyRow = h('label', {}, 'File private key', h('div', { class: 'input-row' }, keyPath, browse),
+    h('small', {}, 'Format OpenSSH/PEM (id_rsa, id_ed25519, …). File .ppk perlu di-export ke OpenSSH dulu lewat PuTTYgen.'));
+  const passLabel = h('span', {});
+  const pass = h('input', { type: 'password' });
   const save = h('input', { type: 'checkbox', checked: p ? p.hasPassword : true });
+  const saveLabel = h('span', {});
+  const syncAuth = () => {
+    btnPw.classList.toggle('on', auth === 'password');
+    btnKey.classList.toggle('on', auth === 'key');
+    keyRow.classList.toggle('hidden', auth !== 'key');
+    const stored = p?.hasPassword && auth === origAuth;
+    if (auth === 'key') {
+      passLabel.textContent = 'Passphrase key (kosongkan jika key tidak dipassword)';
+      saveLabel.textContent = 'Simpan passphrase (terenkripsi untuk user Windows ini)';
+    } else {
+      passLabel.textContent = 'Password';
+      saveLabel.textContent = 'Simpan password (terenkripsi untuk user Windows ini)';
+    }
+    pass.placeholder = stored ? '(tersimpan — kosongkan agar tidak berubah)' : '';
+  };
+  syncAuth();
+
   const tmux = h('input', { type: 'text', value: p?.tmuxSession ?? '', placeholder: 'kosong = shell biasa', spellcheck: 'false' });
   const err = h('div', { class: 'form-error' });
   const body = h('div', { class: 'form' },
     f('Nama', name),
     h('div', { class: 'form-row' }, f('Host', host), f('Port', port)),
     f('User', user),
-    f('Password', pass),
-    h('label', { class: 'check' }, save, 'Simpan password (terenkripsi untuk user Windows ini)'),
+    h('label', {}, 'Metode login', h('div', { class: 'seg' }, btnPw, btnKey)),
+    keyRow,
+    f(passLabel, pass),
+    h('label', { class: 'check' }, save, saveLabel),
     f('Sesi tmux otomatis (opsional)', tmux, 'Jika diisi, saat konek langsung masuk/membuat sesi tmux dengan nama ini.'),
     err);
   let result: ProfileView | null = null;
@@ -123,11 +157,11 @@ export async function editProfile(p: ProfileView | null): Promise<ProfileView | 
     async v => {
       if (v !== 'ok') return true;
       try {
-        const keep = isEdit && p!.hasPassword && save.checked && pass.value === '';
+        const keep = isEdit && p!.hasPassword && auth === origAuth && save.checked && pass.value === '';
         result = await SaveProfile(main.ProfileInput.createFrom({
           id: isEdit ? p!.id : '', name: name.value, host: host.value, port: Number(port.value) || 22,
           user: user.value, password: pass.value, savePassword: save.checked, keepPassword: keep,
-          tmuxSession: tmux.value,
+          authType: auth, keyPath: keyPath.value, tmuxSession: tmux.value,
         })) as unknown as ProfileView;
         return true;
       } catch (e) {
@@ -135,17 +169,19 @@ export async function editProfile(p: ProfileView | null): Promise<ProfileView | 
         return false;
       }
     });
-  if (r === 'ok' && result) toast('Server disimpan');
+  if (r === 'ok' && result) toast('Server disimpan', 'success');
   return r === 'ok' ? result : null;
 }
 
+/** Asks for the password, or for the key passphrase on SSH-key profiles. */
 export async function askPassword(p: ProfileView, error = ''): Promise<{ password: string; save: boolean } | null> {
+  const isKey = p.authType === 'key';
   const pass = h('input', { type: 'password' });
   const save = h('input', { type: 'checkbox' });
   const body = h('div', { class: 'form' },
     error ? h('div', { class: 'form-error' }, error) : null,
-    h('label', {}, `Password untuk ${p.user}@${p.host}`, pass),
-    h('label', { class: 'check' }, save, 'Simpan password (terenkripsi)'));
+    h('label', {}, isKey ? `Passphrase untuk key ${p.keyPath.split(/[\/]/).pop()}` : `Password untuk ${p.user}@${p.host}`, pass),
+    h('label', { class: 'check' }, save, isKey ? 'Simpan passphrase (terenkripsi)' : 'Simpan password (terenkripsi)'));
   const r = await openModal('Login', body,
     [{ label: 'Batal', value: 'cancel' }, { label: 'Konek', value: 'ok', primary: true }]);
   if (r !== 'ok') return null;

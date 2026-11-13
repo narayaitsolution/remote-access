@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -116,6 +117,16 @@ func (a *App) SaveProfile(in ProfileInput) (ProfileView, error) {
 		}
 	}
 	p := Profile{ID: in.ID, Name: in.Name, Host: in.Host, Port: in.Port, User: in.User, TmuxSession: strings.TrimSpace(in.TmuxSession)}
+	if in.AuthType == "key" {
+		p.AuthType, p.KeyPath = "key", strings.TrimSpace(in.KeyPath)
+		if p.KeyPath == "" {
+			return ProfileView{}, errors.New("pilih file private key")
+		}
+		// Reject unreadable / wrong-format files now; an encrypted key is fine.
+		if _, err := loadKey(p.KeyPath, ""); err != nil && !isAuthError(err) {
+			return ProfileView{}, err
+		}
+	}
 	if idx >= 0 && in.KeepPassword {
 		p.Password = a.cfg.Profiles[idx].Password
 	} else if in.SavePassword && in.Password != "" {
@@ -186,6 +197,16 @@ func (a *App) profile(id string) (Profile, error) {
 	return Profile{}, errors.New("profil tidak ditemukan")
 }
 
+// PickKeyFile lets the user choose a private key file (starts in ~/.ssh).
+func (a *App) PickKeyFile() (string, error) {
+	dir := ""
+	if home, err := os.UserHomeDir(); err == nil {
+		dir = filepath.Join(home, ".ssh")
+	}
+	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Pilih private key SSH", DefaultDirectory: dir})
+}
+
 // ---------- terminal sessions ----------
 
 // Connect opens a new terminal session. An empty password uses the stored one.
@@ -204,7 +225,7 @@ func (a *App) Connect(profileID, password string, savePassword bool, cols, rows 
 	s := newSession(a, p, pw, cols, rows)
 	if err := s.connect(startScript("", p.TmuxSession)); err != nil {
 		if isAuthError(err) {
-			return "", errors.New("auth:Password salah atau ditolak server")
+			return "", errors.New("auth:" + authMessage(p, err))
 		}
 		return "", err
 	}
@@ -236,7 +257,7 @@ func (a *App) Reconnect(id, password string) error {
 	}
 	err = s.restart(password)
 	if isAuthError(err) {
-		return errors.New("auth:Password salah atau ditolak server")
+		return errors.New("auth:" + authMessage(s.prof, err))
 	}
 	return err
 }

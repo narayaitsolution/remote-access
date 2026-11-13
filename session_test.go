@@ -8,6 +8,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/binary"
+	"encoding/pem"
 	"io"
 	"net"
 	"os"
@@ -23,15 +24,16 @@ import (
 )
 
 type fakeServer struct {
-	t        *testing.T
-	ln       net.Listener
-	cfg      *ssh.ServerConfig
-	pub      ssh.PublicKey
-	mu       sync.Mutex
-	conns    []net.Conn
-	starts   []string // start scripts received
-	freeze   bool     // stop answering keepalives
-	sftpRoot sftp.Handlers
+	t          *testing.T
+	ln         net.Listener
+	cfg        *ssh.ServerConfig
+	pub        ssh.PublicKey
+	mu         sync.Mutex
+	conns      []net.Conn
+	starts     []string // start scripts received
+	freeze     bool     // stop answering keepalives
+	sftpRoot   sftp.Handlers
+	authorized ssh.PublicKey // accepted client key (authorized_keys)
 }
 
 func newFakeServer(t *testing.T) *fakeServer {
@@ -45,6 +47,14 @@ func newFakeServer(t *testing.T) *fakeServer {
 			}
 			return nil, io.EOF
 		},
+	}
+	fs.cfg.PublicKeyCallback = func(c ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
+		fs.mu.Lock()
+		defer fs.mu.Unlock()
+		if fs.authorized != nil && c.User() == "u" && string(key.Marshal()) == string(fs.authorized.Marshal()) {
+			return nil, nil
+		}
+		return nil, io.EOF
 	}
 	fs.cfg.AddHostKey(signer)
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -372,5 +382,79 @@ func TestConfigRoundTripAndSecret(t *testing.T) {
 	}
 	if cfg2.Settings.Keys["new_tab"] != "Ctrl+Shift+T" {
 		t.Fatal("default keys missing")
+	}
+}
+
+func writeKey(t *testing.T, passphrase string) (path string, pub ssh.PublicKey) {
+	t.Helper()
+	pk, priv, _ := ed25519.GenerateKey(rand.Reader)
+	var block *pem.Block
+	var err error
+	if passphrase == "" {
+		block, err = ssh.MarshalPrivateKey(priv, "test")
+	} else {
+		block, err = ssh.MarshalPrivateKeyWithPassphrase(priv, "test", []byte(passphrase))
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	path = filepath.Join(t.TempDir(), "id_ed25519")
+	os.WriteFile(path, pem.EncodeToMemory(block), 0o600)
+	pub, _ = ssh.NewPublicKey(pk)
+	return path, pub
+}
+
+func TestKeyLogin(t *testing.T) {
+	fs := newFakeServer(t)
+	a, p := testApp(t, fs)
+	p.AuthType = "key"
+
+	// Unencrypted key accepted by the server.
+	path, pub := writeKey(t, "")
+	fs.mu.Lock()
+	fs.authorized = pub
+	fs.mu.Unlock()
+	p.KeyPath = path
+	s := newSession(a, p, "", 80, 24)
+	if err := s.connect(startScript("", "")); err != nil {
+		t.Fatalf("plain key: %v", err)
+	}
+	s.close()
+
+	// Encrypted key: no passphrase → asks for it; wrong → auth error; right → ok.
+	encPath, encPub := writeKey(t, "kunci rahasia")
+	fs.mu.Lock()
+	fs.authorized = encPub
+	fs.mu.Unlock()
+	p.KeyPath = encPath
+	if err := newSession(a, p, "", 80, 24).connect(startScript("", "")); !isAuthError(err) || !strings.Contains(authMessage(p, err), "passphrase") {
+		t.Fatalf("missing passphrase: %v", err)
+	}
+	if err := newSession(a, p, "salah", 80, 24).connect(startScript("", "")); !isAuthError(err) || !strings.Contains(authMessage(p, err), "salah") {
+		t.Fatalf("wrong passphrase: %v", err)
+	}
+	s = newSession(a, p, "kunci rahasia", 80, 24)
+	if err := s.connect(startScript("", "")); err != nil {
+		t.Fatalf("encrypted key: %v", err)
+	}
+	s.close()
+
+	// Key not in authorized_keys → rejected with a helpful message.
+	p.KeyPath = path
+	err := newSession(a, p, "", 80, 24).connect(startScript("", ""))
+	if !isAuthError(err) || !strings.Contains(authMessage(p, err), "authorized_keys") {
+		t.Fatalf("unauthorized key: %v", err)
+	}
+
+	// Wrong file types give clear errors.
+	pubFile := filepath.Join(t.TempDir(), "id.pub")
+	os.WriteFile(pubFile, ssh.MarshalAuthorizedKey(pub), 0o600)
+	if _, err := loadKey(pubFile, ""); err == nil || !strings.Contains(err.Error(), "public key") {
+		t.Fatalf("pub file: %v", err)
+	}
+	ppk := filepath.Join(t.TempDir(), "id.ppk")
+	os.WriteFile(ppk, []byte("PuTTY-User-Key-File-3: ssh-ed25519\n"), 0o600)
+	if _, err := loadKey(ppk, ""); err == nil || !strings.Contains(err.Error(), "PuTTY") {
+		t.Fatalf("ppk file: %v", err)
 	}
 }

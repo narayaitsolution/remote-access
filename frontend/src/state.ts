@@ -5,7 +5,7 @@ import type { Pane } from './pane';
 
 export interface ProfileView {
   id: string; name: string; host: string; port: number; user: string;
-  hasPassword: boolean; tmuxSession: string;
+  hasPassword: boolean; authType: string; keyPath: string; tmuxSession: string;
 }
 
 export interface Settings {
