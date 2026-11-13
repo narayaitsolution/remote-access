@@ -37,6 +37,9 @@ var (
 type SessionInfo struct {
 	Cwd  string `json:"cwd"`
 	Tmux string `json:"tmux"`
+	// Cmd is the program in the foreground of this terminal: the shell itself
+	// (bash, zsh, …) when idle, or e.g. "opencode", "vim", "htop".
+	Cmd string `json:"cmd"`
 }
 
 type Session struct {
@@ -408,21 +411,27 @@ func (s *Session) info() (SessionInfo, error) {
 	if pid == "" {
 		return SessionInfo{}, errors.New("info belum tersedia")
 	}
-	cmd := `tmux list-clients -F '#{client_tty}|#{session_name}|#{pane_current_path}' 2>/dev/null; echo '@@'; readlink /proc/` + pid + `/cwd 2>/dev/null`
+	cmd := `tmux list-clients -F '#{client_tty}|#{session_name}|#{pane_current_command}|#{pane_current_path}' 2>/dev/null; echo '@@'; readlink /proc/` + pid + `/cwd 2>/dev/null; echo '@@'; ps -o comm= --ppid ` + pid + ` 2>/dev/null | tail -n 1; ps -o comm= -p ` + pid + ` 2>/dev/null`
 	out, err := s.runCmd(cmd, 8*time.Second)
 	if err != nil && out == "" {
 		return SessionInfo{}, err
 	}
 	var info SessionInfo
-	parts := strings.SplitN(out, "@@", 2)
+	parts := strings.SplitN(out, "@@", 3)
 	for _, line := range strings.Split(parts[0], "\n") {
-		f := strings.SplitN(strings.TrimSpace(line), "|", 3)
-		if len(f) == 3 && f[0] == tty {
-			info.Tmux, info.Cwd = f[1], f[2]
+		f := strings.SplitN(strings.TrimSpace(line), "|", 4)
+		if len(f) == 4 && f[0] == tty {
+			info.Tmux, info.Cmd, info.Cwd = f[1], f[2], f[3]
 		}
 	}
-	if info.Tmux == "" && len(parts) == 2 {
+	if info.Tmux == "" && len(parts) >= 2 {
 		info.Cwd = strings.TrimSpace(parts[1])
+		if len(parts) == 3 {
+			// First word: foreground child of the shell if any, otherwise the shell itself.
+			if f := strings.Fields(parts[2]); len(f) > 0 {
+				info.Cmd = f[0]
+			}
+		}
 	}
 	s.mu.Lock()
 	s.tmux = info.Tmux

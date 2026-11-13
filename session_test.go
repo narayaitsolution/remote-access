@@ -138,7 +138,7 @@ func (fs *fakeServer) session(ch ssh.Channel, reqs <-chan *ssh.Request) {
 			cmd := string(r.Payload[4:])
 			switch {
 			case strings.Contains(cmd, "tmux list-clients"):
-				io.WriteString(ch, "/dev/pts/9|main|/home/test/project\n/dev/pts/2|other|/tmp\n@@\n/home/test\n")
+				io.WriteString(ch, "/dev/pts/9|main|opencode|/home/test/project\n/dev/pts/2|other|bash|/tmp\n@@\n/home/test\n@@\nbash\n")
 				exitStatus(ch, 0)
 			case strings.Contains(cmd, "tmux set"):
 				exitStatus(ch, 0)
@@ -235,7 +235,7 @@ func TestReconnectReturnsToTmux(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Tmux != "main" || info.Cwd != "/home/test/project" {
+	if info.Tmux != "main" || info.Cwd != "/home/test/project" || info.Cmd != "opencode" {
 		t.Fatalf("info = %+v", info)
 	}
 

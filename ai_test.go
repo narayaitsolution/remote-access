@@ -83,3 +83,49 @@ func TestAILive(t *testing.T) {
 		}
 	}
 }
+
+// A plain question must be answered as chat, without touching the server.
+func TestAIChatNoTools(t *testing.T) {
+	provider := os.Getenv("RT_AI_TEST")
+	if provider == "" {
+		t.Skip("set RT_AI_TEST=claude or RT_AI_TEST=codex to run")
+	}
+	model := map[string]string{"claude": "haiku"}[provider]
+	a := NewApp()
+	var mu sync.Mutex
+	var lines []string
+	tools := 0
+	a.emitHook = func(name string, data any) {
+		mu.Lock()
+		defer mu.Unlock()
+		if name == "ai:tool" {
+			tools++
+			go a.AIToolResult(data.(map[string]any)["reqId"].(string), true, "denied")
+		} else if strings.HasPrefix(name, "ai:line:") {
+			lines = append(lines, data.(string))
+		}
+	}
+	if err := a.AISend("chat2", provider, model, "Apa kepanjangan dari SSH? Jawab singkat dalam satu kalimat.",
+		"The user's terminal is an SSH session to server \"test\" (u@10.0.0.1:22)."); err != nil {
+		t.Fatal(err)
+	}
+	defer a.shutdownAI()
+	deadline := time.Now().Add(3 * time.Minute)
+	for time.Now().Before(deadline) {
+		mu.Lock()
+		all := strings.Join(lines, "\n")
+		n := tools
+		mu.Unlock()
+		if strings.Contains(all, `"type":"result"`) || strings.Contains(all, `"turn.completed"`) {
+			if n != 0 {
+				t.Fatalf("plain chat question triggered %d tool call(s)", n)
+			}
+			if !strings.Contains(all, "Secure Shell") {
+				t.Fatalf("unexpected answer:\n%s", all)
+			}
+			return
+		}
+		time.Sleep(300 * time.Millisecond)
+	}
+	t.Fatal("timeout")
+}

@@ -72,18 +72,27 @@ func str(desc string) map[string]any { return map[string]any{"type": "string", "
 func num(desc string) map[string]any { return map[string]any{"type": "number", "description": desc} }
 
 var aiTools = []mcpTool{
-	{"read_screen", "Read the text currently visible in the user's terminal (the remote server shell, often inside tmux). Optionally include earlier scrollback lines.",
+	{"read_screen", "Read the text currently visible in the user's terminal (the remote server shell, or a program running in it such as opencode, vim or htop, often inside tmux). Also reports which program is in the foreground. Optionally include earlier history lines. Needs the user's permission.",
 		obj(map[string]any{"history_lines": num("Extra lines of scrollback/history above the visible screen to include (0-2000). Default 0.")})},
-	{"run_command", "Type a shell command into the user's visible terminal on the remote server, press Enter, wait for it to finish and return its output and exit code. The user watches it run and must approve it first. Use only for commands that finish on their own (no editors, pagers or interactive prompts; add flags like --no-pager). The working directory and environment persist between calls, like a normal shell.",
+	{"run_command", "Type a shell command into the user's visible terminal on the remote server, press Enter, wait for it to finish and return its output and exit code. The user watches it run and must approve it first. Only works when the shell prompt is in the foreground; if a program (e.g. opencode, vim, top) is running, this fails and you must use send_keys instead. Single line only; use commands that finish on their own (no editors/pagers; add --no-pager). Working directory and environment persist between calls.",
 		obj(map[string]any{
-			"command":         str("The exact command line to run (bash)."),
+			"command":         str("The exact command line to run (bash), on one line."),
 			"timeout_seconds": num("How long to wait for completion (5-600). Default 60. If it is still running afterwards, the current screen is returned."),
 		}, "command")},
-	{"send_keys", "Send keystrokes to the user's terminal, e.g. to answer a prompt, quit a pager or stop a program. Needs user approval. Special keys in angle brackets: <Enter> <Tab> <Esc> <Backspace> <Up> <Down> <Left> <Right> <Ctrl-C> <Ctrl-D> <Ctrl-Z> <Ctrl-L>, and <C-x> for any Ctrl+letter. Returns the screen shortly after.",
-		obj(map[string]any{"keys": str("Text and special keys to send, e.g. \"q\" or \"y<Enter>\" or \"<Ctrl-C>\".")}, "keys")},
-	{"list_dir", "List a directory on the remote server (name, type, size, modification time).",
+	{"send_keys", "Type text and/or keys into whatever is running in the user's terminal — the shell or an interactive program (e.g. write a prompt into opencode, answer y/n, navigate a TUI, quit a pager, stop a program). Needs the user's permission. Special keys in angle brackets: <Enter> <Tab> <S-Tab> <Esc> <Backspace> <Delete> <Up> <Down> <Left> <Right> <Home> <End> <PageUp> <PageDown> <F1>..<F12> <Space>, <C-x> for Ctrl+letter (e.g. <C-c>, <C-d>, <C-b> is the tmux prefix), <M-x> for Alt+letter. Returns the screen after wait_ms.",
+		obj(map[string]any{
+			"keys":    str("Text and special keys, e.g. \"q\", \"y<Enter>\", \"<C-c>\", \"fix the failing test<Enter>\"."),
+			"wait_ms": num("Milliseconds to wait before reading the screen back (100-10000). Default 800."),
+		}, "keys")},
+	{"wait_for_screen", "Watch the user's terminal until some text appears, or until the screen stops changing, then return it. Use it after send_keys to an interactive program (e.g. wait for opencode to finish answering). Needs the user's permission (it reads the screen).",
+		obj(map[string]any{
+			"until_text": str("Return as soon as this text is visible on the screen (optional)."),
+			"seconds":    num("Maximum time to wait (1-300). Default 30."),
+			"stable_ms":  num("Without until_text: return once the screen has not changed for this long (500-30000). Default 2000."),
+		})},
+	{"list_dir", "List a directory on the remote server (name, type, size, modification time). Needs the user's permission.",
 		obj(map[string]any{"path": str("Absolute path, or ~ for home.")}, "path")},
-	{"read_file", "Read a text file from the remote server.",
+	{"read_file", "Read a text file from the remote server. Needs the user's permission.",
 		obj(map[string]any{
 			"path":      str("Absolute path of the file."),
 			"max_bytes": num("Maximum bytes to read (default 200000)."),
@@ -346,14 +355,19 @@ func aiWorkDir() string {
 }
 
 func aiSystemPrompt(context string) string {
-	return `You are an assistant built into "Remote Terminal", an SSH client. The user is connected to a remote Linux server (usually Ubuntu, often inside tmux).
+	return `You are a helpful assistant built into "Remote Terminal", an SSH client the user is working in.
 ` + context + `
-You can ONLY act through the remote-terminal tools (read_screen, run_command, send_keys, list_dir, read_file, write_file). They operate on the remote server, never on the user's local Windows PC.
-- Start by reading the screen when the user refers to what they see.
-- run_command types the command into the user's visible terminal; the user watches and approves each one. Prefer short, non-interactive commands (use --no-pager, avoid editors and pagers; use send_keys for interactive programs).
-- Explain briefly what you are about to do and why. Ask before destructive or irreversible actions (deleting data, restarting production services, changing firewall rules) even though the user will also be asked to approve.
-- If the user denies a tool call, do not retry the same action; ask what they prefer.
-- Reply in the same language the user writes in.`
+
+Default to being a normal chat assistant: answer questions, explain, write code or commands, discuss ideas — without touching the server. Most messages need no tools.
+
+Use the remote-terminal tools only when the request actually needs the server or the terminal (e.g. "check why nginx fails", "what is on my screen", "read /etc/hosts", "type this into opencode"). Every tool use asks the user for permission, so use them purposefully and say briefly why before using one.
+The tools act on the remote server and the user's terminal only, never on the user's local Windows PC:
+- read_screen: see the terminal, including programs running in it (opencode, vim, htop…) and which program is in the foreground.
+- run_command: run a shell command visibly in the terminal (only when the shell prompt is in the foreground).
+- send_keys + wait_for_screen: interact with whatever is running — e.g. type a request into opencode and press Enter, then wait for its answer; answer prompts; navigate TUIs; <C-c> to stop. Read the screen first so you know what is running and where the input focus is.
+- list_dir / read_file / write_file: files on the server.
+Ask before destructive or irreversible actions (deleting data, restarting production services, firewall changes). If the user denies a tool, do not retry it; continue the conversation or ask what they prefer.
+Reply in the same language the user writes in.`
 }
 
 // AISend sends a user message to the chat's AI, starting the CLI if needed.

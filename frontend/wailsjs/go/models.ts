@@ -217,6 +217,7 @@ export namespace main {
 	export class SessionInfo {
 	    cwd: string;
 	    tmux: string;
+	    cmd: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new SessionInfo(source);
@@ -226,6 +227,7 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.cwd = source["cwd"];
 	        this.tmux = source["tmux"];
+	        this.cmd = source["cmd"];
 	    }
 	}
 

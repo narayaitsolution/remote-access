@@ -26,18 +26,21 @@ interface Chat {
   provider: string;
   items: Item[];
   busy: boolean;
-  autoApprove: boolean;
+  autoRead: boolean;
+  autoWrite: boolean;
   usage: Usage;
   lastCost: number;
 }
 
 interface RateWindow { utilization: number; resetsAt: number }
 
-const MUTATING = new Set(['run_command', 'send_keys', 'write_file']);
+/** Tools that only look; everything else changes something. Both need permission. */
+const READ_TOOLS = new Set(['read_screen', 'wait_for_screen', 'list_dir', 'read_file']);
 const TOOL_LABEL: Record<string, string> = {
-  read_screen: 'Membaca layar', run_command: 'Menjalankan perintah', send_keys: 'Mengirim tombol',
-  list_dir: 'Melihat folder', read_file: 'Membaca file', write_file: 'Menulis file',
+  read_screen: 'Membaca layar', run_command: 'Menjalankan perintah', send_keys: 'Mengetik / mengirim tombol',
+  wait_for_screen: 'Memantau layar', list_dir: 'Melihat folder', read_file: 'Membaca file', write_file: 'Menulis file',
 };
+const SHELLS = new Set(['bash', 'sh', 'dash', 'zsh', 'fish', 'ksh', 'tcsh', 'csh', 'ash', '-bash', '-sh', '-zsh']);
 
 let chatSeq = 0;
 
@@ -54,7 +57,8 @@ export class AIPanel {
   private list: HTMLElement;
   private input: HTMLTextAreaElement;
   private sendBtn: HTMLButtonElement;
-  private autoChk: HTMLInputElement;
+  private autoReadChk: HTMLInputElement;
+  private autoWriteChk: HTMLInputElement;
   private limits: Record<string, RateWindow> = {};
   private approvals = new Map<string, (ok: boolean | 'all') => void>();
 
@@ -66,15 +70,20 @@ export class AIPanel {
     this.target = h('div', { class: 'ai-target' });
     this.usageEl = h('div', { class: 'ai-usage' });
     this.list = h('div', { class: 'ai-list' });
-    this.input = h('textarea', { class: 'ai-input', rows: 3, placeholder: 'Minta AI membantu di terminal ini…  (Enter kirim · Shift+Enter baris baru)' });
+    this.input = h('textarea', { class: 'ai-input', rows: 3, placeholder: 'Tanya apa saja, atau minta bantuan di server…  (Enter kirim · Shift+Enter baris baru)' });
     this.input.addEventListener('keydown', e => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.send(); }
     });
     this.sendBtn = h('button', { class: 'btn primary ai-send', onclick: () => this.busy() ? this.stop() : this.send() }, 'Kirim');
-    this.autoChk = h('input', { type: 'checkbox' });
-    this.autoChk.addEventListener('change', () => {
-      const c = this.chat();
-      if (c) c.autoApprove = this.autoChk.checked;
+    this.autoReadChk = h('input', { type: 'checkbox' });
+    this.autoWriteChk = h('input', { type: 'checkbox' });
+    this.autoReadChk.addEventListener('change', () => {
+      const c = this.chat(true);
+      if (c) c.autoRead = this.autoReadChk.checked;
+    });
+    this.autoWriteChk.addEventListener('change', () => {
+      const c = this.chat(true);
+      if (c) c.autoWrite = this.autoWriteChk.checked;
     });
     const newBtn = h('button', { class: 'btn small', title: 'Mulai percakapan baru', onclick: () => this.newChat() }, 'Chat baru');
     const closeBtn = h('button', { class: 'icon-btn', title: 'Tutup panel AI (Ctrl+Shift+A)', html: '&times;', onclick: () => this.toggle(false) });
@@ -87,7 +96,9 @@ export class AIPanel {
       h('div', { class: 'ai-foot' },
         this.input,
         h('div', { class: 'ai-foot-row' },
-          h('label', { class: 'ai-auto', title: 'Jika dicentang, perintah AI di chat ini dijalankan tanpa bertanya' }, this.autoChk, 'Izinkan semua di chat ini'),
+          h('div', { class: 'ai-autos' },
+            h('label', { class: 'ai-auto', title: 'AI boleh membaca layar/file server tanpa bertanya (chat ini saja)' }, this.autoReadChk, 'Izinkan baca otomatis'),
+            h('label', { class: 'ai-auto', title: 'AI boleh menjalankan perintah, mengetik, dan menulis file tanpa bertanya (chat ini saja)' }, this.autoWriteChk, 'Izinkan ubah otomatis')),
           this.sendBtn)));
     this.setupResize(resizer);
     this.applyVisibility();
@@ -196,7 +207,7 @@ export class AIPanel {
     if (!p) return null;
     let c = this.chats.get(p);
     if (!c && create) {
-      c = { id: `c${++chatSeq}`, pane: p, provider: this.provider(), items: [], busy: false, autoApprove: false,
+      c = { id: `c${++chatSeq}`, pane: p, provider: this.provider(), items: [], busy: false, autoRead: false, autoWrite: false,
         usage: { input: 0, cached: 0, output: 0, cost: 0, turns: 0 }, lastCost: 0 };
       this.chats.set(p, c);
       this.byId.set(c.id, c);
@@ -251,20 +262,27 @@ export class AIPanel {
     const text = this.input.value.trim();
     if (!text) return;
     const p = this.pane;
-    if (!p || !p.connected || !p.profile) { toast('Hubungkan terminal ke server dulu', 'error'); return; }
+    if (!p) return;
     const c = this.chat(true)!;
     if (c.busy && this.provider() === 'codex') { toast('Codex masih bekerja'); return; }
     if (c.provider !== this.provider()) { AIReset(c.id); c.provider = this.provider(); }
     this.input.value = '';
     c.items.push({ kind: 'user', text });
     this.setBusy(c, true);
+    // Chat works without a server; the context just tells the AI what is available.
     const prof = p.profile;
-    const context = `Server: "${prof.name}" — ${prof.user}@${prof.host}:${prof.port}.`;
+    const context = prof
+      ? `The user's terminal is an SSH session to server "${prof.name}" (${prof.user}@${prof.host}:${prof.port}).`
+      : `The user's terminal is not connected to any server yet, so the tools are unavailable; just chat.`;
     let live = '';
-    try {
-      const info = await Info(p.sessionId);
-      live = `[Terminal saat ini: ${info.tmux ? `di dalam tmux session "${info.tmux}"` : 'shell biasa (tanpa tmux)'}, folder: ${info.cwd || '?'}]\n`;
-    } catch { /* not critical */ }
+    if (p.connected) {
+      try {
+        const info = await Info(p.sessionId);
+        live = `[Terminal: ${info.tmux ? `tmux session "${info.tmux}"` : 'plain shell'}, foreground program: ${info.cmd || '?'}, directory: ${info.cwd || '?'}]\n`;
+      } catch { /* not critical */ }
+    } else if (prof) {
+      live = '[Terminal currently disconnected]\n';
+    }
     try {
       await AISend(c.id, c.provider, store.settings.aiModels[c.provider] || this.modelSel.value || '', live + text, context);
     } catch (e) {
@@ -381,7 +399,8 @@ export class AIPanel {
       reply('The terminal is not connected to the server right now.', true);
       return;
     }
-    if (MUTATING.has(ev.name) && !c.autoApprove) {
+    const isRead = READ_TOOLS.has(ev.name);
+    if (isRead ? !c.autoRead : !c.autoWrite) {
       item.status = 'approval';
       this.refresh(c);
       if (!store.settings.aiVisible) this.toggle(true);
@@ -393,7 +412,10 @@ export class AIPanel {
         reply('The user denied this action. Do not retry it; ask the user how to proceed.', true);
         return;
       }
-      if (decision === 'all') { c.autoApprove = true; this.autoChk.checked = true; }
+      if (decision === 'all') {
+        if (isRead) c.autoRead = true; else c.autoWrite = true;
+        this.render();
+      }
       item.status = 'running';
     }
     this.paneStatus(c, `AI: ${TOOL_LABEL[ev.name] || ev.name}${ev.name === 'run_command' ? ' — ' + String(args.command).slice(0, 80) : ''}`);
@@ -422,7 +444,7 @@ export class AIPanel {
         h('pre', { class: 'ai-approve-cmd' }, summarize(item.name, item.args, 600)),
         h('div', { class: 'ai-approve-btns' },
           h('button', { class: 'btn', onclick: () => done(false) }, 'Tolak'),
-          h('button', { class: 'btn', onclick: () => done('all') }, 'Izinkan semua'),
+          h('button', { class: 'btn', onclick: () => done('all') }, READ_TOOLS.has(item.name) ? 'Izinkan semua baca' : 'Izinkan semua perubahan'),
           h('button', { class: 'btn primary', onclick: () => done(true) }, 'Izinkan')));
       c.pane.el.append(bar);
       this.paneStatus(c, 'AI menunggu izin Anda');
@@ -445,12 +467,22 @@ export class AIPanel {
   private async execTool(p: Pane, name: string, a: any): Promise<string> {
     switch (name) {
       case 'read_screen': return readScreen(p, clamp(Number(a.history_lines) || 0, 0, 2000));
-      case 'run_command': return runCommand(p, String(a.command || ''), clamp(Number(a.timeout_seconds) || 60, 5, 600));
+      case 'run_command': {
+        // Typing a shell command into e.g. opencode or vim would do damage: refuse.
+        const fg = await foreground(p);
+        if (fg && !SHELLS.has(fg)) {
+          throw new Error(`"${fg}" is running in the foreground of the terminal, not the shell prompt, so the command was NOT typed. ` +
+            `Use send_keys to interact with ${fg} (or to exit it), or ask the user.`);
+        }
+        return runCommand(p, String(a.command || ''), clamp(Number(a.timeout_seconds) || 60, 5, 600));
+      }
       case 'send_keys': {
-        p.send(parseKeys(String(a.keys || '')));
-        await sleep(800);
+        p.send(parseKeys(String(a.keys || ''), !!p.term?.modes.applicationCursorKeysMode));
+        await sleep(clamp(Number(a.wait_ms) || 800, 100, 10000));
         return 'Keys sent. Screen now:\n' + await readScreen(p, 0);
       }
+      case 'wait_for_screen':
+        return waitForScreen(p, String(a.until_text || ''), clamp(Number(a.seconds) || 30, 1, 300), clamp(Number(a.stable_ms) || 2000, 500, 30000));
       case 'list_dir': {
         const res = await ListDir(p.sessionId, String(a.path || '~'));
         const rows = (res.entries || []).map((e: any) =>
@@ -472,9 +504,10 @@ export class AIPanel {
     const p = this.pane;
     const c = this.chat();
     this.target.textContent = p?.profile
-      ? `Bekerja di: ${p.title} (${p.profile.user}@${p.profile.host})${p.connected ? '' : ' — tidak terhubung'}`
-      : 'Pilih/hubungkan server di terminal dulu.';
-    this.autoChk.checked = !!c?.autoApprove;
+      ? `Terminal: ${p.title} (${p.profile.user}@${p.profile.host})${p.connected ? '' : ' — tidak terhubung'}`
+      : 'Mode chat — terminal belum terhubung ke server.';
+    this.autoReadChk.checked = !!c?.autoRead;
+    this.autoWriteChk.checked = !!c?.autoWrite;
     this.sendBtn.textContent = c?.busy ? 'Stop' : 'Kirim';
     this.sendBtn.classList.toggle('danger', !!c?.busy);
     this.renderUsage(c);
@@ -482,10 +515,15 @@ export class AIPanel {
     const nodes: HTMLElement[] = [];
     if (!c || c.items.length === 0) {
       nodes.push(h('div', { class: 'ai-empty', html: `
-        <b>Asisten AI untuk terminal ini</b><br>
-        AI bisa membaca layar, menjalankan perintah langsung di terminal (Anda bisa memantaunya), mengirim tombol, serta membaca/menulis file.
-        Setiap tindakan yang mengubah sesuatu meminta izin Anda dulu.<br><br>
-        Contoh: <i>"kenapa service nginx gagal start?"</i>, <i>"cek disk mana yang hampir penuh"</i>, <i>"jelaskan error di layar"</i>.` }));
+        <b>Asisten AI</b><br>
+        Tanyakan apa saja seperti chat biasa. Jika permintaan Anda butuh server, AI akan <b>meminta izin</b> dulu sebelum
+        membaca layar/file, menjalankan perintah (terlihat langsung di terminal), menulis file, atau mengetik ke aplikasi
+        yang sedang berjalan (misalnya opencode di tmux).<br><br>
+        Contoh:<br>
+        • <i>"jelaskan beda nginx dan apache"</i> (chat saja)<br>
+        • <i>"kenapa service nginx di server ini gagal start?"</i><br>
+        • <i>"jelaskan error yang ada di layar"</i><br>
+        • <i>"minta opencode memperbaiki test yang gagal, lalu pantau hasilnya"</i>` }));
     } else {
       for (const it of c.items) nodes.push(this.renderItem(it));
       if (c.busy) nodes.push(h('div', { class: 'ai-thinking' }, h('span', { class: 'ai-dots' }), 'AI sedang bekerja…'));
@@ -537,7 +575,7 @@ export class AIPanel {
           const resolve = this.approvals.get(it.reqId);
           box.append(h('div', { class: 'ai-approve-btns' },
             h('button', { class: 'btn', onclick: () => resolve?.(false) }, 'Tolak'),
-            h('button', { class: 'btn', onclick: () => resolve?.('all') }, 'Izinkan semua'),
+            h('button', { class: 'btn', onclick: () => resolve?.('all') }, READ_TOOLS.has(it.name) ? 'Izinkan semua baca' : 'Izinkan semua perubahan'),
             h('button', { class: 'btn primary', onclick: () => resolve?.(true) }, 'Izinkan')));
         }
         if (it.output) {
@@ -565,6 +603,7 @@ function summarize(name: string, a: any, max: number): string {
     case 'write_file': s = `${a.path}\n────\n${String(a.content ?? '')}`; break;
     case 'read_file': case 'list_dir': s = String(a.path ?? ''); break;
     case 'read_screen': s = a.history_lines ? `layar + ${a.history_lines} baris riwayat` : 'layar saat ini'; break;
+    case 'wait_for_screen': s = a.until_text ? `tunggu sampai muncul "${a.until_text}" (maks ${a.seconds || 30} dtk)` : `tunggu layar berhenti berubah (maks ${a.seconds || 30} dtk)`; break;
     default: s = JSON.stringify(a);
   }
   return s.length > max ? s.slice(0, max) + '…' : s;
@@ -600,7 +639,9 @@ async function readScreen(p: Pane, history: number): Promise<string> {
   const start = buf.viewportY - history;
   const lines = bufferLines(p, start, buf.viewportY + term.rows);
   while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
-  return lines.join('\n') + `\n[cursor at row ${buf.cursorY + 1}, col ${buf.cursorX + 1}; ${term.cols}x${term.rows}]`;
+  const fg = await foreground(p);
+  return (fg ? `[foreground program: ${fg}]\n` : '') + lines.join('\n') +
+    `\n[cursor at row ${buf.cursorY + 1}, col ${buf.cursorX + 1}; ${term.cols}x${term.rows}]`;
 }
 
 /**
@@ -648,19 +689,56 @@ async function runCommand(p: Pane, command: string, timeoutSec: number): Promise
 }
 
 const KEYMAP: Record<string, string> = {
-  enter: '\r', tab: '\t', esc: '\x1b', escape: '\x1b', backspace: '\x7f', space: ' ',
-  up: '\x1b[A', down: '\x1b[B', right: '\x1b[C', left: '\x1b[D',
-  home: '\x1b[H', end: '\x1b[F', pageup: '\x1b[5~', pagedown: '\x1b[6~', delete: '\x1b[3~',
+  enter: '\r', return: '\r', cr: '\r', tab: '\t', esc: '\x1b', escape: '\x1b', backspace: '\x7f', bs: '\x7f', space: ' ',
+  home: '\x1b[H', end: '\x1b[F', pageup: '\x1b[5~', pagedown: '\x1b[6~', pgup: '\x1b[5~', pgdn: '\x1b[6~',
+  delete: '\x1b[3~', del: '\x1b[3~', insert: '\x1b[2~', 's-tab': '\x1b[Z', 'shift-tab': '\x1b[Z', backtab: '\x1b[Z',
+  f1: '\x1bOP', f2: '\x1bOQ', f3: '\x1bOR', f4: '\x1bOS', f5: '\x1b[15~', f6: '\x1b[17~', f7: '\x1b[18~',
+  f8: '\x1b[19~', f9: '\x1b[20~', f10: '\x1b[21~', f11: '\x1b[23~', f12: '\x1b[24~',
+  'c-space': '\x00', 'ctrl-space': '\x00',
 };
+const ARROWS: Record<string, string> = { up: 'A', down: 'B', right: 'C', left: 'D' };
 
-export function parseKeys(s: string): string {
-  return s.replace(/<([^<>]+)>/g, (whole, name: string) => {
+/**
+ * Converts "text<Enter><C-c><M-x><F5>" into terminal bytes. appCursor follows the
+ * terminal's cursor-key mode (TUIs such as vim/opencode switch it on).
+ */
+export function parseKeys(s: string, appCursor = false): string {
+  return s.replace(/<([^<>\s][^<>]*)>/g, (whole, name: string) => {
     const k = name.trim().toLowerCase();
+    if (ARROWS[k]) return (appCursor ? '\x1bO' : '\x1b[') + ARROWS[k];
     if (KEYMAP[k] !== undefined) return KEYMAP[k];
     const ctrl = /^(?:ctrl|c)-([a-z@\[\\\]^_])$/.exec(k);
     if (ctrl) return String.fromCharCode(ctrl[1].toUpperCase().charCodeAt(0) & 0x1f);
+    const alt = /^(?:alt|m|meta)-(.)$/i.exec(name.trim());
+    if (alt) return '\x1b' + alt[1];
     return whole;
   });
+}
+
+/** Program in the foreground of the terminal ("bash" when idle), or '' if unknown. */
+async function foreground(p: Pane): Promise<string> {
+  try { return (await Info(p.sessionId)).cmd || ''; } catch { return ''; }
+}
+
+function screenSnapshot(p: Pane): string {
+  const term = p.term!;
+  const buf = term.buffer.active;
+  return bufferLines(p, buf.viewportY, buf.viewportY + term.rows).join('\n');
+}
+
+/** Waits until text appears or the screen stops changing, then returns it. */
+async function waitForScreen(p: Pane, until: string, seconds: number, stableMs: number): Promise<string> {
+  const deadline = Date.now() + seconds * 1000;
+  let last = '', lastChange = Date.now();
+  while (Date.now() < deadline) {
+    if (!p.term) throw new Error('terminal closed');
+    const snap = screenSnapshot(p);
+    if (until && snap.includes(until)) return `Found "${until}". Screen:\n` + await readScreen(p, 0);
+    if (snap !== last) { last = snap; lastChange = Date.now(); }
+    else if (!until && Date.now() - lastChange >= stableMs) return 'Screen is stable. Screen:\n' + await readScreen(p, 0);
+    await sleep(300);
+  }
+  return `Waited ${seconds}s${until ? ` but "${until}" did not appear` : ' (screen kept changing)'}. Screen:\n` + await readScreen(p, 0);
 }
 
 /** Very small Markdown subset: code blocks, inline code, bold, lists, paragraphs. */

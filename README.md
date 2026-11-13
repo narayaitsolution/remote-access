@@ -60,12 +60,14 @@ A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a
 ### AI assistant that works in your terminal
 - Open the AI panel with `Ctrl+Shift+A` (or the **AI** button). It uses the AI CLIs already installed and logged in on your PC — **Claude Code** (`claude`) and **Codex** (`codex`) — so there is no extra login or API key.
 - Choose the provider and **model** per provider (Claude: opus / sonnet / haiku or a full model id; Codex: the models from your Codex installation). "Model lain…" accepts any model name.
-- The AI does not just chat — it can **act on the server** through tools the app provides:
-  - read the screen (including tmux history),
+- **It is a normal chat by default** — ask anything, even without a server connection. Only when a request needs the server does the AI use the tools the app provides, and **every server access asks your permission first**:
+  - read the screen (including tmux history) and see which program is in the foreground,
   - run commands — **typed into your visible terminal so you can watch them run**, with the exit code and output returned to the AI,
-  - send keys (answer prompts, quit a pager, `Ctrl+C`),
+  - type text and keys into whatever is running — e.g. **give instructions to opencode running in tmux**, answer prompts, navigate TUIs, `Ctrl+C` (supports Enter, Tab, Shift+Tab, Esc, arrows, F1–F12, Ctrl+key, Alt+key),
+  - watch the screen until some text appears or it stops changing (e.g. wait for opencode's answer),
   - list, read and write files over SFTP.
-- **Everything that changes something needs your approval first** (run command, send keys, write file). The request appears both on the terminal itself and in the panel: *Allow*, *Deny*, or *Allow all* for that chat. Reading the screen and files does not ask.
+- Permissions are split into **read** (screen, files, folders) and **change** (commands, keys, writing files). Each request appears on the terminal itself and in the panel with *Allow*, *Deny*, or *Allow all reads / changes* for that chat; two checkboxes show and toggle the current choice.
+- Safety: `run_command` is refused automatically when a program (opencode, vim, top…) is in the foreground instead of the shell prompt, so a shell command is never typed into an application by mistake — the AI must use keys instead.
 - While the AI works, the terminal gets a purple frame and a status badge ("AI: running command — df -h"), so you always see what it is doing.
 - **Usage** is shown in the panel: for Claude, your subscription's 5-hour and 7-day limit utilisation (with reset time) plus tokens and estimated cost of the chat; for Codex, the tokens used by the chat.
 - Each terminal pane has its own chat; *New chat* starts over. The AI CLIs run in an empty temporary folder with their own local tools disabled, so they can only act on the remote server through the app's tools (Codex additionally runs with a read-only sandbox).
@@ -209,7 +211,7 @@ Aplikasi terminal SSH portable untuk Windows dengan sidebar file SFTP, alternati
 - **Toolbar ikon kecil satu baris:** naik folder, upload, download, file baru, folder baru, rename, hapus, refresh, ikuti terminal.
 - **Menu klik kanan** untuk semua operasi file, pilih banyak file sekaligus, upload/download folder dengan progress bar, dan **drag & drop dari Windows Explorer** untuk upload.
 - **Notifikasi (toast) di kanan atas** saat copy berhasil dan saat setiap operasi file berhasil/gagal.
-- **Asisten AI (`Ctrl+Shift+A`)** memakai Claude Code / Codex yang sudah login di komputer ini, bisa memilih model, menampilkan usage (limit 5 jam / 7 hari untuk Claude), dan bisa **bekerja langsung di terminal**: membaca layar, menjalankan perintah yang terlihat di terminal, mengirim tombol, serta membaca/menulis file. Setiap tindakan yang mengubah sesuatu **harus Anda izinkan dulu**.
+- **Asisten AI (`Ctrl+Shift+A`)** memakai Claude Code / Codex yang sudah login di komputer ini, bisa memilih model, dan menampilkan usage (limit 5 jam / 7 hari untuk Claude). **Defaultnya chat biasa**; jika permintaan butuh server, AI **meminta izin** dulu untuk membaca layar/file, menjalankan perintah (terlihat di terminal), menulis file, atau **mengetik ke aplikasi yang sedang berjalan** seperti opencode di tmux.
 - **Verifikasi host key** dengan peringatan jika kunci server berubah.
 
 ### Shortcut
