@@ -39,5 +39,3 @@ require (
 	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/text v0.44.0 // indirect
 )
-
-// replace github.com/wailsapp/wails/v2 v2.17.1 => C:\Users\johanericka\go\pkg\mod

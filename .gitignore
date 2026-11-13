@@ -1,9 +1,17 @@
+# Build output (releases are published on GitHub Releases, not committed)
 build/bin
-frontend/dist
+*.exe
 frontend/node_modules
+frontend/dist/*
+!frontend/dist/.gitkeep
+frontend/package.json.md5
 
 # Personal data created next to the .exe — never commit these
 config.toml
 config.toml.tmp
 known_hosts
-frontend/package.json.md5
+.env
+*.pem
+*.ppk
+id_rsa*
+id_ed25519*

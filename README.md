@@ -1,8 +1,12 @@
 # Remote Terminal
 
-**Current version: 8.3** — see [Version history](#version-history).
+**Current version: 8.4** — see [Version history](#version-history).
 
 A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a focused alternative to MobaXterm for people who mostly live in `ssh` + `tmux`.
+
+## Download
+
+**[⬇ Download the latest `RemoteTerminal-<version>.exe` from Releases](https://github.com/narayaitsolution/remote-access/releases/latest)** — one portable file, no installation (Windows 10/11).
 
 *[Bahasa Indonesia di bawah](#bahasa-indonesia)*
 
@@ -183,20 +187,39 @@ Created automatically on first start. You can edit it with any text editor while
 - Dragging files *from* the sidebar *to* Explorer is not supported; use Download (toolbar or right-click).
 - Windows only (password encryption uses DPAPI).
 
-## Building from source
+## Development
 
-Requirements: [Go](https://go.dev/dl/) 1.24+, [Node.js](https://nodejs.org/) 20+, Windows 10/11.
+Anyone can clone the repository and build or extend the app.
+
+**Requirements:** Windows 10/11, [Go](https://go.dev/dl/) 1.26+, [Node.js](https://nodejs.org/) 20+ (npm), and Git.
 
 ```powershell
-go install github.com/wailsapp/wails/v2/cmd/wails@latest
+git clone https://github.com/narayaitsolution/remote-access.git
+cd remote-access
+go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.1   # once; puts wails in %USERPROFILE%\go\bin
 .\build.ps1
-# → build\bin\RemoteTerminal-<version>.exe   (version from version.go, e.g. RemoteTerminal-8.1.exe)
+# → build\bin\RemoteTerminal-<version>.exe   (version from version.go)
 ```
 
-To release a new version: change `appVersion` in `version.go` (and `productVersion` in `wails.json`), add a row to [Version history](#version-history), build with `.\build.ps1`, then tag the commit `v<version>`.
+`build.ps1` installs the frontend packages, builds the UI and compiles one portable `.exe`. It never cleans `build\bin`, so a `config.toml` you keep there for testing is not deleted.
 
-- Development mode with hot reload: `wails dev`
-- Tests (in-process fake SSH server covering login, reconnect into tmux, keepalive timeout, SFTP transfers, password encryption): `go test ./...`
+| Task | Command |
+|---|---|
+| Run with hot reload while developing | `wails dev` |
+| Go tests (in-process fake SSH/SFTP server: login, SSH keys, reconnect into tmux, keepalive timeout, transfers, editor save/conflict, OpenAI-compatible provider, password encryption, Windows file icons) | `go test ./...` |
+| Live tests against the real AI CLIs (use your logged-in account and a little quota) | `$env:RT_AI_TEST="claude"; go test -run TestAI -v .` (or `codex`) |
+| Type-check the frontend | `cd frontend; npx tsc --noEmit` |
+| Regenerate the app icon from `assets/icon-source.png` | `go run ./tools/mkicon assets/icon-source.png` |
+
+**Continuous integration:** every push and pull request runs the tests and builds the `.exe` on GitHub Actions ([`.github/workflows/build.yml`](.github/workflows/build.yml)); the build is attached to the run as an artifact.
+
+**Releasing a new version** (major = new feature, minor = fixes/small changes/docs):
+1. Change `appVersion` in `version.go` and `productVersion` in `wails.json`.
+2. Add a row to [Version history](#version-history) (English) and *Riwayat versi* (Indonesian).
+3. Commit, then tag and push: `git tag -a v8.5 -m "Remote Terminal 8.5"; git push; git push origin v8.5`.
+4. GitHub Actions builds `RemoteTerminal-8.5.exe` and publishes it on the [Releases](https://github.com/narayaitsolution/remote-access/releases) page, with the notes taken from the version-history row.
+
+**Privacy:** personal files are never part of the repository. `config.toml` (servers, encrypted passwords, API keys), `known_hosts`, SSH keys and built `.exe` files are listed in `.gitignore`. Passwords and API keys are only ever stored DPAPI-encrypted on the user's own PC.
 
 ## How it works
 
@@ -227,6 +250,8 @@ To release a new version: change `appVersion` in `version.go` (and `productVersi
 | `ai_openai.go` | OpenAI-compatible providers (base URL + API key) |
 | `fileicon*.go`, `frontend/src/fileicons.ts` | File-type icons taken from Windows (Explorer icons) |
 | `version.go` | Application version |
+| `build.ps1` | Builds `build\bin\RemoteTerminal-<version>.exe` |
+| `.github/workflows/build.yml` | CI: tests + build on every push; publishes the `.exe` to Releases for `v*` tags |
 | `assets/icon.svg`, `assets/icon-source.png`, `tools/mkicon` | App icon source; `go run ./tools/mkicon assets/icon-source.png` writes `build/appicon.png` and `build/windows/icon.ico` |
 
 ## Version history
@@ -235,6 +260,7 @@ Versioning scheme: the **major** number goes up when a new feature is added; the
 
 | Version | Type | Changes |
 |---|---|---|
+| **8.4** | Minor | Executables are published on GitHub Releases, built automatically by GitHub Actions for every version tag; tests run on every push; the repository builds right after cloning (Development section in README); test data no longer contains personal names |
 | **8.3** | Minor | New application icon (terminal window with a remote-connection signal) replacing the default framework "W" icon; `tools/mkicon` regenerates the icons from `assets/icon-source.png` |
 | **8.2** | Minor | File icons in the SFTP sidebar now match Windows Explorer: each file type shows the icon of the program it opens with (PDF, Word, Excel, PowerPoint, text, archives, Python, …), with built-in icons as fallback |
 | **8.1** | Minor | Fixed a grey box covering the title of the first tab ("Pilih…") on the server picker; `build.ps1` names the executable after the version (`RemoteTerminal-8.1.exe`) |
@@ -266,6 +292,10 @@ Versioning scheme: the **major** number goes up when a new feature is added; the
 
 Aplikasi terminal SSH portable untuk Windows dengan sidebar file SFTP, alternatif ringan untuk MobaXterm bagi pengguna yang sehari-hari bekerja dengan `ssh` + `tmux`.
 
+**Unduh:** file `RemoteTerminal-<versi>.exe` terbaru ada di halaman **[Releases](https://github.com/narayaitsolution/remote-access/releases/latest)**. Cukup satu file, tanpa instalasi.
+
+**Pengembangan:** clone repo ini, pasang Go, Node.js, dan Wails CLI, lalu jalankan `.\build.ps1` (detail di bagian [Development](#development)). Setiap push dites otomatis di GitHub Actions, dan setiap tag versi (`v8.4`, `v9.0`, …) otomatis membangun dan menerbitkan .exe di Releases. File pribadi (`config.toml`, `known_hosts`, SSH key) tidak pernah ikut ke repo.
+
 ### Fitur utama
 - **Satu file `.exe` tanpa instalasi.** Konfigurasi disimpan di file teks `config.toml` di samping `.exe`.
 - **Halaman pemilihan server** di setiap tab/split baru: cari, pilih dengan panah, `Enter` untuk konek. Server bisa ditambah, diedit, diduplikat, dihapus, dan diurutkan.
@@ -293,6 +323,7 @@ Skema: angka **mayor** naik bila ada fitur baru, angka **minor** naik untuk perb
 
 | Versi | Ringkasan |
 |---|---|
+| 8.4 | File .exe diterbitkan otomatis di GitHub Releases untuk setiap versi; tes otomatis setiap push; repo bisa langsung di-build setelah di-clone |
 | 8.3 | Ikon aplikasi baru (jendela terminal dengan sinyal koneksi remote) menggantikan ikon "W" bawaan framework |
 | 8.2 | Ikon file di sidebar FTP mengikuti ikon aplikasinya seperti di Windows Explorer (PDF, Word, Excel, PowerPoint, teks, arsip, Python, dll.) |
 | 8.1 | Perbaikan kotak abu-abu yang menutupi judul tab pertama di halaman pilih server; nama file .exe kini sesuai versi (`RemoteTerminal-8.1.exe`) |

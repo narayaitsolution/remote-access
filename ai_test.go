@@ -154,7 +154,7 @@ func TestAIDoesNotTypeIntoForegroundApp(t *testing.T) {
 			case "read_screen":
 				res = "[foreground program: opencode]\nopencode v1.0 — ask anything\n> "
 			case "run_background":
-				res = "exit code: 0\n/home/johan/app"
+				res = "exit code: 0\n/home/dev/app"
 			default:
 				res, isErr = "denied by test", true
 			}
@@ -165,8 +165,8 @@ func TestAIDoesNotTypeIntoForegroundApp(t *testing.T) {
 			mu.Unlock()
 		}
 	}
-	msg := "[Terminal: tmux session \"main\", foreground program: opencode, directory: /home/johan/app]\npwd"
-	if err := a.AISend("chat3", provider, model, msg, "The user's terminal is an SSH session to server \"test\" (johan@10.0.0.1:22)."); err != nil {
+	msg := "[Terminal: tmux session \"main\", foreground program: opencode, directory: /home/dev/app]\npwd"
+	if err := a.AISend("chat3", provider, model, msg, "The user's terminal is an SSH session to server \"test\" (dev@10.0.0.1:22)."); err != nil {
 		t.Fatal(err)
 	}
 	defer a.shutdownAI()
@@ -183,7 +183,7 @@ func TestAIDoesNotTypeIntoForegroundApp(t *testing.T) {
 					t.Fatalf("AI typed into the user's screen (%s). Tools: %v", u, tools)
 				}
 			}
-			if !strings.Contains(all, "/home/johan/app") {
+			if !strings.Contains(all, "/home/dev/app") {
 				t.Fatalf("answer lacks the directory:\n%s", all)
 			}
 			return

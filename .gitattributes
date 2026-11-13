@@ -1,0 +1,6 @@
+# Same line endings on every OS, so builds don't show bogus changes.
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.png binary
+*.ico binary
+*.exe binary
