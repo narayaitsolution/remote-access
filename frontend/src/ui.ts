@@ -119,12 +119,23 @@ window.addEventListener('mousedown', e => {
 window.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); }, true);
 window.addEventListener('blur', closeMenu);
 
-export function toast(msg: string, kind: 'info' | 'error' = 'info') {
+const toastIcons = {
+  success: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+  error: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
+  info: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>',
+};
+
+/** Small notification in the top-right corner. */
+export function toast(msg: string, kind: 'info' | 'success' | 'error' = 'info') {
   let box = document.querySelector('.toasts');
   if (!box) { box = h('div', { class: 'toasts' }); document.body.append(box); }
-  const t = h('div', { class: 'toast ' + kind }, msg);
+  // Keep at most 4 visible; drop the oldest.
+  while (box.children.length >= 4) box.firstElementChild!.remove();
+  const t = h('div', { class: 'toast ' + kind },
+    h('span', { class: 'toast-icon', html: toastIcons[kind] }), h('span', {}, msg));
+  t.addEventListener('click', () => t.remove());
   box.append(t);
-  setTimeout(() => t.remove(), kind === 'error' ? 6000 : 3000);
+  setTimeout(() => { t.classList.add('leaving'); setTimeout(() => t.remove(), 250); }, kind === 'error' ? 6000 : 2200);
 }
 
 export function errMsg(e: unknown): string {

@@ -6,7 +6,7 @@ import { Close, Connect, Reconnect, Resize, Write, WriteBinary } from '../wailsj
 import { ClipboardGetText, ClipboardSetText, EventsOn } from '../wailsjs/runtime/runtime';
 import { askPassword, Picker } from './picker';
 import { hooks, refreshState, store, type ProfileView } from './state';
-import { errMsg, h } from './ui';
+import { errMsg, h, toast } from './ui';
 
 export type PaneState = 'picker' | 'connecting' | 'connected' | 'reconnecting' | 'ended' | 'failed';
 
@@ -38,7 +38,6 @@ export class Pane {
   private badge: HTMLDivElement;
   private unsubs: (() => void)[] = [];
   private ro: ResizeObserver;
-  private copyTimer = 0;
 
   constructor() {
     this.badge = h('div', { class: 'pane-badge hidden' });
@@ -104,11 +103,6 @@ export class Pane {
       WriteBinary(this.sessionId, btoa(String.fromCharCode(...b)));
     });
     term.onResize(({ cols, rows }) => { if (this.sessionId) Resize(this.sessionId, cols, rows); });
-    term.onSelectionChange(() => {
-      if (!store.settings.copyOnSelect) return;
-      clearTimeout(this.copyTimer);
-      this.copyTimer = window.setTimeout(() => this.copySelection(), 150);
-    });
     term.attachCustomKeyEventHandler(e => {
       if (e.type === 'keydown' && e.shiftKey && e.key === 'Insert') { e.preventDefault(); this.paste(); return false; }
       return true;
@@ -144,10 +138,16 @@ export class Pane {
     this.refit();
   }
 
+  /** Copies the selection to the Windows clipboard (never the server's). */
   copySelection() {
     if (!this.term) return;
     const text = cleanSelection(this.term.getSelection(), this.term.cols);
-    if (text) ClipboardSetText(text);
+    if (!text) return;
+    ClipboardSetText(text).then(ok => {
+      if (ok === false) { toast('Gagal menyalin ke clipboard', 'error'); return; }
+      const lines = text.split('\r\n').length;
+      toast(lines > 1 ? `Copy berhasil (${lines} baris)` : 'Copy berhasil', 'success');
+    }).catch(() => toast('Gagal menyalin ke clipboard', 'error'));
   }
 
   async paste() {
@@ -330,10 +330,7 @@ for (const type of ['mousemove', 'mouseup', 'click', 'dblclick'] as const) {
       const p = dragPane;
       dragPane = null;
       // Copy once the selection is final (after xterm handled this mouseup).
-      if (p && store.settings.copyOnSelect) setTimeout(() => { if (p.term?.hasSelection()) p.copySelection(); }, 0);
-    }
-    if (type === 'dblclick') {
-      const p = inTerm(e);
+      // Covers drags, double-click (word) and triple-click (line) selection.
       if (p && store.settings.copyOnSelect) setTimeout(() => { if (p.term?.hasSelection()) p.copySelection(); }, 0);
     }
   }, true);

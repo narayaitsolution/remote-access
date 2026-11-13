@@ -32,7 +32,7 @@ A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a
 ### Terminal that behaves like you expect
 - Based on xterm.js (the terminal used by VS Code) with GPU rendering, 256/true color and full tmux support.
 - **Mouse wheel scrolls tmux history directly** — no Shift needed. (The app enables `mouse on` in your running tmux server; disable with `tmux_mouse = false`.)
-- **Select = copy**: dragging always selects text locally, even inside tmux, and copies it to the Windows clipboard immediately. Copied text is cleaned up: trailing blanks are removed from every line, lines that were only broken by the screen width are joined back together, and line breaks are Windows-style (CRLF), so multi-line text pastes correctly anywhere.
+- **Select = copy**: dragging always selects text locally, even inside tmux, and copies it to the Windows (host) clipboard — never to tmux on the server — with a "Copy berhasil" notification. Copied text is cleaned up: trailing blanks are removed from every line, lines that were only broken by the screen width are joined back together, and line breaks are Windows-style (CRLF), so multi-line text pastes correctly anywhere.
 - **Right-click = paste** (also middle-click, `Shift+Insert`, `Ctrl+Shift+V`).
 - `Ctrl+Wheel` changes the font size; `Ctrl+0` resets it.
 
@@ -51,6 +51,9 @@ A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a
 - Upload and download whole folders, with a progress bar per transfer and a cancel button. Click a finished download to open its folder in Explorer.
 - **Drag & drop from Windows Explorer** onto the sidebar to upload (drop onto a folder row to upload into that folder).
 - Keyboard: `Enter` open, `Backspace` up, `F2` rename, `Del` delete, `F5` refresh, `Ctrl+A` select all.
+
+### Notifications
+- A small notification in the top-right corner confirms every copy and reports success or failure of every file action (upload, download, new file/folder, rename, delete, chmod, refresh, up).
 
 ### Security
 - Host keys are checked against a `known_hosts` file next to the `.exe`. You confirm the fingerprint on first connect, and get a clear warning if a server's key changes.
@@ -173,6 +176,7 @@ Aplikasi terminal SSH portable untuk Windows dengan sidebar file SFTP, alternati
 - **Sidebar SFTP** yang bisa ditampilkan/disembunyikan, secara default **mengikuti folder kerja terminal**, dan bisa dinavigasi sendiri.
 - **Toolbar ikon kecil satu baris:** naik folder, upload, download, file baru, folder baru, rename, hapus, refresh, ikuti terminal.
 - **Menu klik kanan** untuk semua operasi file, pilih banyak file sekaligus, upload/download folder dengan progress bar, dan **drag & drop dari Windows Explorer** untuk upload.
+- **Notifikasi (toast) di kanan atas** saat copy berhasil dan saat setiap operasi file berhasil/gagal.
 - **Verifikasi host key** dengan peringatan jika kunci server berubah.
 
 ### Shortcut
