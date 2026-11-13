@@ -15,7 +15,7 @@ var assets embed.FS
 func main() {
 	app := NewApp()
 	err := wails.Run(&options.App{
-		Title:            "Remote Terminal",
+		Title:            "Remote Terminal " + appVersion,
 		Width:            1280,
 		Height:           800,
 		MinWidth:         640,

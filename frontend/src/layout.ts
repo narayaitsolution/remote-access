@@ -47,6 +47,7 @@ export class Layout {
         btn(icons.plus, `Tab baru (${k.new_tab})`, () => this.newTab()),
         btn(icons.splitV, `Split vertikal (${k.split_vertical})`, () => this.split('row')),
         btn(icons.splitH, `Split horizontal (${k.split_horizontal})`, () => this.split('col')),
+        btn(icons.tools, 'Program pendukung (cek & pasang)', () => hooks.showSetup('')),
         h('button', { class: 'ai-toggle', title: `Asisten AI (${k.toggle_ai})`, onclick: () => hooks.toggleAI() }, 'AI')),
       this.area);
 

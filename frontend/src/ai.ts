@@ -96,7 +96,7 @@ export class AIPanel {
         h('span', { class: 'ai-title' }, 'AI'), this.providerSel, this.modelSel, h('span', { class: 'ai-spacer' }),
         h('button', { class: 'icon-btn', title: 'Kelola provider AI (OpenAI-compatible: URL + API key)', html: '&#9881;', onclick: () => this.manageProviders() }),
         newBtn, closeBtn),
-      this.target, this.usageEl, this.list,
+      this.target, this.installHint, this.usageEl, this.list,
       h('div', { class: 'ai-foot' },
         this.input,
         h('div', { class: 'ai-foot-row' },
@@ -112,6 +112,9 @@ export class AIPanel {
     this.init();
   }
 
+  /** Reloads providers after programs were installed or providers edited. */
+  reloadProviders() { this.init(); }
+
   private async init() {
     this.providers = (await AIProviders()) as unknown as ProviderInfo[];
     const s = store.settings;
@@ -123,9 +126,15 @@ export class AIPanel {
       ...(api.length ? [h('optgroup', { label: 'OpenAI-compatible' }, ...api.map(opt))] : []));
     const usable = this.providers.find(p => p.id === s.aiProvider && p.installed) || this.providers.find(p => p.installed);
     if (usable) this.providerSel.value = usable.id;
+    const missing = cli.filter(p => !p.installed);
+    this.installHint.replaceChildren(...(missing.length ? [
+      h('span', {}, `${missing.map(p => p.name).join(' & ')} belum terpasang. `),
+      h('button', { class: 'link', onclick: () => hooks.showSetup(missing[0].id) }, 'Pasang…')] : []));
+    this.installHint.classList.toggle('hidden', !missing.length);
     this.fillModels();
     this.render();
   }
+  private installHint = h('div', { class: 'ai-install-hint hidden' });
 
   /** Dialog to add/edit/delete OpenAI-compatible providers (URL + API key). */
   private async manageProviders() {

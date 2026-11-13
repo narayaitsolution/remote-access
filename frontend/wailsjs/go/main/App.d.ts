@@ -12,9 +12,13 @@ export function AIStop(arg1:string):Promise<void>;
 
 export function AIToolResult(arg1:string,arg2:boolean,arg3:string):Promise<void>;
 
+export function AppForFile(arg1:string):Promise<string>;
+
 export function CancelTransfer(arg1:string):Promise<void>;
 
 export function CaptureTmux(arg1:string,arg2:number):Promise<string>;
+
+export function CheckDeps():Promise<Array<main.DepStatus>>;
 
 export function Chmod(arg1:string,arg2:string,arg3:string):Promise<void>;
 
@@ -30,15 +34,25 @@ export function DeleteProfile(arg1:string):Promise<void>;
 
 export function DownloadDialog(arg1:string,arg2:Array<string>):Promise<void>;
 
+export function EditLocally(arg1:string,arg2:string):Promise<main.LocalEdit>;
+
 export function GetState():Promise<main.AppState>;
+
+export function GetVersion():Promise<string>;
 
 export function HostKeyAnswer(arg1:string,arg2:boolean):Promise<void>;
 
 export function Info(arg1:string):Promise<main.SessionInfo>;
 
+export function InstallDep(arg1:string):Promise<void>;
+
 export function ListAIProviders():Promise<Array<main.AIProviderView>>;
 
 export function ListDir(arg1:string,arg2:string):Promise<main.DirListing>;
+
+export function LoginAI(arg1:string):Promise<void>;
+
+export function MarkSetupDone():Promise<void>;
 
 export function Mkdir(arg1:string,arg2:string):Promise<void>;
 
@@ -49,6 +63,8 @@ export function OpenFileForEdit(arg1:string,arg2:string):Promise<main.EditFile>;
 export function OpenLocalFolder(arg1:string):Promise<void>;
 
 export function PickKeyFile():Promise<string>;
+
+export function ReadFileBase64(arg1:string,arg2:string):Promise<string>;
 
 export function ReadFileText(arg1:string,arg2:string,arg3:number):Promise<string>;
 
@@ -71,6 +87,8 @@ export function SaveProfile(arg1:main.ProfileInput):Promise<main.ProfileView>;
 export function SaveSettings(arg1:main.Settings):Promise<void>;
 
 export function SetUnsavedCount(arg1:number):Promise<void>;
+
+export function StopLocalEdit(arg1:string):Promise<void>;
 
 export function TestAIProvider(arg1:main.AIProviderInput):Promise<Array<string>>;
 

@@ -599,3 +599,16 @@ func (a *App) beforeClose(ctx context.Context) bool {
 	}
 	return res != "Tutup tanpa menyimpan" && res != "Yes" && res != "Ok"
 }
+
+// ReadFileBase64 returns a remote file base64-encoded, for the PDF and image viewers.
+func (a *App) ReadFileBase64(id, path string) (string, error) {
+	s, err := a.session(id)
+	if err != nil {
+		return "", err
+	}
+	b, err := s.readBinary(path)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(b), nil
+}

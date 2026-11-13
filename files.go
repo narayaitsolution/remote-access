@@ -485,3 +485,26 @@ func (s *Session) saveFromEdit(p, content, expect string, force bool) (string, e
 	}
 	return fileStamp(st), nil
 }
+
+const maxViewBytes = 64 << 20
+
+// readBinary returns a remote file's bytes (for PDF / image viewers).
+func (s *Session) readBinary(p string) ([]byte, error) {
+	c, err := s.getSFTP()
+	if err != nil {
+		return nil, err
+	}
+	st, err := c.Stat(p)
+	if err != nil {
+		return nil, err
+	}
+	if st.Size() > maxViewBytes {
+		return nil, fmt.Errorf("file terlalu besar untuk ditampilkan (%d MB, maks 64 MB). Gunakan Download", st.Size()>>20)
+	}
+	f, err := c.Open(p)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return io.ReadAll(io.LimitReader(f, maxViewBytes))
+}

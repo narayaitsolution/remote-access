@@ -12,7 +12,7 @@
   },
   "info": {
     "productName": "Remote Terminal",
-    "productVersion": "0.1.0",
+    "productVersion": "8.0.0",
     "comments": "SSH terminal + SFTP sidebar for Windows"
   }
 }

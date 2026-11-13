@@ -181,7 +181,7 @@ func (a *App) handleMCP(w http.ResponseWriter, r *http.Request) {
 		result = map[string]any{
 			"protocolVersion": p.ProtocolVersion,
 			"capabilities":    map[string]any{"tools": map[string]any{}},
-			"serverInfo":      map[string]any{"name": "remote-terminal", "version": "0.2.0"},
+			"serverInfo":      map[string]any{"name": "remote-terminal", "version": appVersion},
 		}
 	case "ping":
 		result = map[string]any{}

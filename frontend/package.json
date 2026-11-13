@@ -15,6 +15,9 @@
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/addon-webgl": "^0.18.0",
     "@xterm/xterm": "^5.5.0",
-    "monaco-editor": "^0.52.2"
+    "dompurify": "^3.4.17",
+    "marked": "^15.0.7",
+    "monaco-editor": "^0.52.2",
+    "pdfjs-dist": "^4.10.38"
   }
 }

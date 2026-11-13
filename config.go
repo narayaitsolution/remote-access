@@ -30,6 +30,7 @@ type Settings struct {
 	AIWidth          int               `toml:"ai_width" json:"aiWidth"`
 	AIProvider       string            `toml:"ai_provider" json:"aiProvider"` // "claude" or "codex"
 	AIModels         map[string]string `toml:"ai_models" json:"aiModels"`     // provider -> chosen model
+	SetupDone        bool              `toml:"setup_done" json:"setupDone"`   // first-run environment check shown
 	Keys             map[string]string `toml:"keys" json:"keys"`
 }
 

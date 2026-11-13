@@ -23,6 +23,7 @@ export const icons = {
   sidebar: svg('<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>'),
   splitV: svg('<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18"/>'),
   splitH: svg('<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h18"/>'),
+  tools: svg('<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>'),
   arrowUp: svg('<path d="m18 15-6-6-6 6"/>', 14),
   arrowDown: svg('<path d="m6 9 6 6 6-6"/>', 14),
 };

@@ -109,6 +109,7 @@ export namespace main {
 	    aiWidth: number;
 	    aiProvider: string;
 	    aiModels: Record<string, string>;
+	    setupDone: boolean;
 	    keys: Record<string, string>;
 	
 	    static createFrom(source: any = {}) {
@@ -131,6 +132,7 @@ export namespace main {
 	        this.aiWidth = source["aiWidth"];
 	        this.aiProvider = source["aiProvider"];
 	        this.aiModels = source["aiModels"];
+	        this.setupDone = source["setupDone"];
 	        this.keys = source["keys"];
 	    }
 	}
@@ -169,6 +171,32 @@ export namespace main {
 		    }
 		    return a;
 		}
+	}
+	export class DepStatus {
+	    id: string;
+	    name: string;
+	    purpose: string;
+	    status: string;
+	    detail: string;
+	    installable: boolean;
+	    needsLogin: boolean;
+	    manual: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DepStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.purpose = source["purpose"];
+	        this.status = source["status"];
+	        this.detail = source["detail"];
+	        this.installable = source["installable"];
+	        this.needsLogin = source["needsLogin"];
+	        this.manual = source["manual"];
+	    }
 	}
 	export class FileEntry {
 	    name: string;
@@ -245,6 +273,32 @@ export namespace main {
 	    }
 	}
 	
+	export class LocalEdit {
+	    id: string;
+	    sessId: string;
+	    remote: string;
+	    name: string;
+	    app: string;
+	    state: string;
+	    error: string;
+	    lastSync: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new LocalEdit(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.sessId = source["sessId"];
+	        this.remote = source["remote"];
+	        this.name = source["name"];
+	        this.app = source["app"];
+	        this.state = source["state"];
+	        this.error = source["error"];
+	        this.lastSync = source["lastSync"];
+	    }
+	}
 	export class ProfileInput {
 	    id: string;
 	    name: string;

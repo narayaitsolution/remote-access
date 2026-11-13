@@ -6,7 +6,7 @@ import { Close, Connect, Reconnect, Resize, Write, WriteBinary } from '../wailsj
 import { ClipboardGetText, ClipboardSetText, EventsOn } from '../wailsjs/runtime/runtime';
 import { askPassword, Picker } from './picker';
 import { hooks, refreshState, store, type ProfileView } from './state';
-import { EditorView } from './editor';
+import { viewFor, type FileView } from './viewers';
 import { errMsg, h, openModal, toast } from './ui';
 
 export type PaneState = 'picker' | 'connecting' | 'connected' | 'reconnecting' | 'ended' | 'failed' | 'editor';
@@ -41,7 +41,7 @@ export class Pane {
   private ro: ResizeObserver;
 
   /** Set when this pane shows a file editor instead of a terminal. */
-  editor: EditorView | null = null;
+  editor: FileView | null = null;
   /** The terminal pane whose connection the editor uses (for sidebar and AI). */
   editorSrc: Pane | null = null;
 
@@ -65,7 +65,7 @@ export class Pane {
   /** Turns this pane into an editor for a remote file. Resolves false if it could not be opened. */
   async openEditor(src: Pane, path: string): Promise<boolean> {
     this.editorSrc = src;
-    const ed = new EditorView(src.sessionId, path, () => {
+    const ed: FileView = viewFor(src.sessionId, path, () => {
       this.title = (ed.dirty ? '● ' : '') + ed.fileName;
       hooks.paneChanged(this);
     });

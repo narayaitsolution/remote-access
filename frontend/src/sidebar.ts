@@ -1,8 +1,9 @@
 // SFTP file browser on the left. Follows the focused terminal's directory by default.
 import {
-  CancelTransfer, Chmod, CreateFile, DownloadDialog, Info, ListDir, Mkdir, OpenLocalFolder,
-  Remove, Rename, Upload, UploadDialog,
+  AppForFile, CancelTransfer, Chmod, CreateFile, DownloadDialog, EditLocally, Info, ListDir, Mkdir, OpenLocalFolder,
+  Remove, Rename, StopLocalEdit, Upload, UploadDialog,
 } from '../wailsjs/go/main/App';
+import { extOf, OFFICE_EXT } from './viewers';
 import { ClipboardSetText, EventsOn, OnFileDrop } from '../wailsjs/runtime/runtime';
 import { icons } from './icons';
 import type { Pane } from './pane';
@@ -68,6 +69,7 @@ export class Sidebar {
 
     OnFileDrop((x, y, paths) => this.onDrop(x, y, paths), true);
     EventsOn('xfer', (t: Xfer) => this.onXfer(t));
+    EventsOn('localEdit', (le: any) => this.onLocalEdit(le));
     setInterval(() => this.followTick(), 1500);
   }
 
@@ -236,8 +238,49 @@ export class Sidebar {
 
   /** Double-click / Enter: folders are entered, files open in the editor. */
   private open(e: Entry) {
-    if (e.isDir) this.navigate(join(this.path, e.name));
-    else if (this.pane?.connected) hooks.openEditor(this.pane, join(this.path, e.name));
+    if (e.isDir) { this.navigate(join(this.path, e.name)); return; }
+    if (!this.pane?.connected) return;
+    // Word/Excel/PowerPoint: edit in the Windows application, synced back on save.
+    if (OFFICE_EXT.has(extOf(e.name))) { this.openWithApp(e); return; }
+    hooks.openEditor(this.pane, join(this.path, e.name));
+  }
+
+  /** Opens a file in its Windows program; every save there is uploaded back. */
+  private async openWithApp(e: Entry) {
+    const id = this.need();
+    if (!id) return;
+    try {
+      const le = await EditLocally(id, join(this.path, e.name));
+      toast(`${e.name} dibuka di ${le.app}. Setiap kali disimpan, file otomatis di-upload ke server.`, 'success');
+    } catch (err) {
+      const msg = String(err);
+      if (msg.startsWith('noapp:') && OFFICE_EXT.has(extOf(e.name))) {
+        const ok = await confirmDialog('Aplikasi Office belum ada', `${msg.slice(6)}. Pasang LibreOffice (gratis) sekarang?`, 'Pasang…');
+        if (ok) hooks.showSetup('office');
+      } else {
+        toast(`Tidak bisa membuka ${e.name}: ${errMsg(err)}`, 'error');
+      }
+    }
+  }
+
+  private localEdits = new Map<string, HTMLElement>();
+  private onLocalEdit(le: { id: string; name: string; app: string; state: string; error: string; lastSync: number; remote: string }) {
+    let el = this.localEdits.get(le.id);
+    if (le.state === 'closed') { el?.remove(); this.localEdits.delete(le.id); return; }
+    if (!el) { el = h('div', { class: 'xfer local' }); this.localEdits.set(le.id, el); this.xferBox.prepend(el); }
+    const when = le.lastSync ? new Date(le.lastSync * 1000).toLocaleTimeString() : '';
+    const status = le.state === 'editing' ? `Sedang diedit di ${le.app} — simpan di sana untuk upload otomatis`
+      : le.state === 'syncing' ? 'Mengupload perubahan…'
+      : le.state === 'synced' ? `Tersimpan ke server ${when}`
+      : 'Gagal upload: ' + le.error;
+    if (le.state === 'synced') { toast(`${le.name} tersimpan ke server`, 'success'); if (parentDir(le.remote) === this.path) this.refresh(); }
+    if (le.state === 'error') toast(`Gagal upload ${le.name}: ${le.error}`, 'error');
+    el.className = 'xfer local ' + (le.state === 'error' ? 'error' : le.state === 'synced' ? 'done' : '');
+    el.replaceChildren(
+      h('div', { class: 'xfer-head' }, h('span', { class: 'xfer-icon', html: icons.rename }),
+        h('span', { class: 'xfer-name', title: le.remote }, le.name),
+        h('button', { class: 'btn small', title: 'Berhenti memantau file ini', onclick: () => StopLocalEdit(le.id) }, 'Selesai')),
+      h('div', { class: 'xfer-status', title: status }, status));
   }
 
   private selPaths(): string[] {
@@ -365,7 +408,16 @@ export class Sidebar {
     const full = join(this.path, e.name);
     const items: MenuItem[] = [];
     if (e.isDir && !multi) items.push({ label: 'Buka', icon: icons.folder, action: () => this.navigate(full) });
-    if (!e.isDir && !multi) items.push({ label: 'Buka di editor', icon: icons.rename, hint: 'Double-click', action: () => this.open(e) });
+    if (!e.isDir && !multi) {
+      const office = OFFICE_EXT.has(extOf(e.name));
+      items.push({ label: office ? 'Buka (edit di aplikasi Windows)' : 'Buka', icon: icons.rename, hint: 'Double-click', action: () => this.open(e) });
+      if (office) items.push({ label: 'Buka sebagai teks di editor', icon: icons.file, action: () => this.pane && hooks.openEditor(this.pane, full) });
+      else items.push({ label: 'Buka dengan aplikasi Windows', icon: icons.file, action: async () => {
+        const app = await AppForFile(e.name);
+        if (!app) { toast(`Tidak ada aplikasi Windows untuk file .${extOf(e.name) || '(tanpa ekstensi)'}`, 'error'); return; }
+        this.openWithApp(e);
+      } });
+    }
     items.push(
       { label: multi ? `Download ${this.selected.size} item` : 'Download', icon: icons.download, action: () => this.download() },
       { label: 'Rename', icon: icons.rename, hint: 'F2', disabled: multi, action: () => this.rename() },
@@ -455,3 +507,5 @@ function modeToOctal(mode: string): string {
   for (let i = 0; i < 9; i++) if (p[i] && p[i] !== '-') n |= 1 << (8 - i);
   return n.toString(8).padStart(3, '0');
 }
+
+function parentDir(p: string) { return p.replace(/\/[^/]*$/, '') || '/'; }

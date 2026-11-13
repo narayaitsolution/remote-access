@@ -1,5 +1,7 @@
 # Remote Terminal
 
+**Current version: 8.0** — see [Version history](#version-history).
+
 A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a focused alternative to MobaXterm for people who mostly live in `ssh` + `tmux`.
 
 *[Bahasa Indonesia di bawah](#bahasa-indonesia)*
@@ -80,6 +82,30 @@ A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a
 - **Closing a tab with unsaved changes asks**: *Save*, *Don't save* or *Cancel*. Closing the whole app with unsaved files asks too.
 - If the file was changed on the server since you opened it (by someone else, a script or an AI tool), saving warns you before overwriting.
 - Text files up to 5 MB; binary files are refused (use Download).
+
+### Viewing PDF, Markdown, images and Office files
+Double-click a file in the sidebar and it opens in the main area according to its type:
+
+| File | Opens as |
+|---|---|
+| `.pdf` | **PDF viewer** (pdf.js): all pages, zoom in/out, fit to width |
+| `.md`, `.markdown` | **Markdown preview** (tables, code blocks, lists); *Edit* switches to the code editor, `Ctrl+S` saves. HTML in the file is sanitized, so scripts never run |
+| `.png`, `.jpg`, `.gif`, `.webp`, `.svg`, `.bmp`, `.ico` | **Image viewer** (click to toggle actual size) |
+| `.docx`, `.xlsx`, `.pptx` (and `.doc`, `.xls`, `.ppt`, `.odt`, `.ods`, `.odp`, `.rtf`) | **Edited in the Windows application** (Word, Excel, PowerPoint or LibreOffice). Every time you save there, the file is uploaded back to the server automatically; the sidebar shows its status and a *Done* button |
+| everything else (`.txt`, code, configs, logs…) | **Code editor** |
+
+Right-click → *Open with Windows application* works for any file type that has a program on your PC.
+
+### Supporting programs (first-run check)
+Everything marked *built-in* below is inside the `.exe`. On first start the app checks the optional programs and offers to install the missing ones with **winget** in one click; the dialog is available any time from the 🔧 button in the top bar. A feature whose program is missing stays disabled and offers *Install…* when you try to use it.
+
+| Program | Needed for | Installed with |
+|---|---|---|
+| — (built-in) | Terminal, SFTP, code editor, PDF/Markdown/image viewers, AI via OpenAI-compatible URL | nothing to install |
+| Microsoft Edge WebView2 | the app window | preinstalled on Windows 10/11 |
+| Claude Code CLI | AI assistant: Claude | `winget install Anthropic.ClaudeCode` (+ one-time *Login*) |
+| Codex CLI | AI assistant: Codex | `winget install OpenAI.Codex` (+ one-time *Login*) |
+| Microsoft Office or LibreOffice | editing Word / Excel / PowerPoint files | `winget install TheDocumentFoundation.LibreOffice` |
 
 ### Notifications
 - A small notification in the top-right corner confirms every copy and reports success or failure of every file action (upload, download, new file/folder, rename, delete, chmod, refresh, up).
@@ -163,7 +189,7 @@ Requirements: [Go](https://go.dev/dl/) 1.24+, [Node.js](https://nodejs.org/) 20+
 
 ```powershell
 go install github.com/wailsapp/wails/v2/cmd/wails@latest
-wails build -clean -trimpath -ldflags "-s -w"
+wails build -trimpath -ldflags "-s -w"
 # → build\bin\RemoteTerminal.exe
 ```
 
@@ -193,10 +219,35 @@ wails build -clean -trimpath -ldflags "-s -w"
 | `frontend/src/sidebar.ts` | SFTP file browser, context menu, transfers, drag & drop |
 | `frontend/src/ai.ts` | AI panel: chat, approvals, tool execution in the terminal, usage |
 | `frontend/src/editor.ts`, `monaco.ts` | File editor tabs (Monaco) with save, dirty tracking and conflict detection |
+| `frontend/src/viewers.ts` | PDF, Markdown and image viewers |
+| `frontend/src/setup.ts`, `deps.go` | First-run check and winget installation of supporting programs |
+| `localedit.go`, `winshell_*.go` | Editing files in Windows applications with automatic upload |
+| `ai_openai.go` | OpenAI-compatible providers (base URL + API key) |
+| `version.go` | Application version |
+
+## Version history
+
+Versioning scheme: the **major** number goes up when a new feature is added; the **minor** number goes up for fixes, small improvements and documentation. Each version is tagged in git (`v8.0`, `v7.0`, …).
+
+| Version | Type | Changes |
+|---|---|---|
+| **8.0** | Feature | PDF viewer, Markdown preview/edit, image viewer; editing Word/Excel/PowerPoint in the Windows application with automatic upload on save; *Open with Windows application* for any file; first-run check of supporting programs with one-click winget installation (Claude Code, Codex, LibreOffice) and *Login* buttons; version shown in the window title |
+| **7.0** | Feature | AI providers via any OpenAI-compatible URL + API key (OpenAI, OpenRouter, Groq, DeepSeek, Ollama, LM Studio…), models listed in the AI panel, keys stored encrypted |
+| **6.0** | Feature | Built-in file editor (Monaco, like VS Code): line numbers, syntax highlighting, `Ctrl+S` save, unsaved-changes prompt on close, conflict detection |
+| **5.1** | Minor | AI no longer types into the user's screen unless asked; new background-command tool; Codex receives the rules as developer instructions |
+| **5.0** | Feature | AI works as a normal chat by default; every server access needs permission (read / change); AI can drive programs running on screen (e.g. opencode in tmux); screen-watch tool; more special keys |
+| **4.0** | Feature | AI assistant using the installed Claude Code / Codex: reads the screen, runs commands visibly, sends keys, reads/writes files; approvals; model choice; usage and limits |
+| **3.1** | Minor | Documentation for SSH key login |
+| **3.0** | Feature | Login with SSH private keys (OpenSSH/PEM, with passphrase support) |
+| **2.1** | Minor | Copied text that a program wrapped to the screen width is joined back into flowing sentences |
+| **2.0** | Feature | Top-right notifications for copy and for every file action (upload, download, create, rename, delete, refresh, up) |
+| **1.2** | Minor | Multi-line copy uses Windows line breaks and drops padding spaces; MIT license |
+| **1.1** | Minor | Detailed README with Indonesian section |
+| **1.0** | Feature | First release: portable SSH terminal, server picker, tabs and splits, auto-reconnect into tmux, select-to-copy, SFTP sidebar following the terminal directory, upload/download, file management, drag & drop |
 
 ## Built with
 
-[Wails](https://wails.io), [xterm.js](https://xtermjs.org), [golang.org/x/crypto/ssh](https://pkg.go.dev/golang.org/x/crypto/ssh), [pkg/sftp](https://github.com/pkg/sftp), [BurntSushi/toml](https://github.com/BurntSushi/toml).
+[Wails](https://wails.io), [xterm.js](https://xtermjs.org), [Monaco Editor](https://microsoft.github.io/monaco-editor/), [pdf.js](https://mozilla.github.io/pdf.js/), [marked](https://marked.js.org), [DOMPurify](https://github.com/cure53/DOMPurify), [golang.org/x/crypto/ssh](https://pkg.go.dev/golang.org/x/crypto/ssh), [pkg/sftp](https://github.com/pkg/sftp), [BurntSushi/toml](https://github.com/BurntSushi/toml).
 
 ## License
 
@@ -223,7 +274,30 @@ Aplikasi terminal SSH portable untuk Windows dengan sidebar file SFTP, alternati
 - **Editor file seperti VS Code**: double-click file di sidebar untuk membukanya di tab baru (nomor baris, warna sintaks), `Ctrl+S` untuk menyimpan ke server, konfirmasi saat menutup tab yang belum disimpan.
 - **Notifikasi (toast) di kanan atas** saat copy berhasil dan saat setiap operasi file berhasil/gagal.
 - **Asisten AI (`Ctrl+Shift+A`)** memakai Claude Code / Codex yang sudah login di komputer ini, bisa memilih model, dan menampilkan usage (limit 5 jam / 7 hari untuk Claude). **Defaultnya chat biasa**; jika permintaan butuh server, AI **meminta izin** dulu untuk membaca layar/file, menjalankan perintah (terlihat di terminal), menulis file, atau **mengetik ke aplikasi yang sedang berjalan** seperti opencode di tmux.
+- **Viewer di layar utama**: double-click PDF (viewer dengan zoom), Markdown (preview, tombol Edit untuk mengubah), dan gambar.
+- **File Word/Excel/PowerPoint** dibuka dan diedit di aplikasi Windows (Office/LibreOffice); setiap kali disimpan, otomatis di-upload ke server.
+- **Cek program pendukung saat pertama kali dibuka** (tombol 🔧 di bar atas): Claude Code, Codex, dan Office/LibreOffice dipasang otomatis lewat winget dengan satu klik. Fitur yang programnya belum ada dinonaktifkan dan menampilkan tombol *Pasang*.
+- **Provider AI tambahan** lewat URL OpenAI-compatible + API key (terenkripsi); modelnya muncul di panel AI.
 - **Verifikasi host key** dengan peringatan jika kunci server berubah.
+
+### Riwayat versi
+Skema: angka **mayor** naik bila ada fitur baru, angka **minor** naik untuk perbaikan, perubahan kecil, dan dokumentasi. Detail tiap versi ada di tabel [Version history](#version-history) di atas.
+
+| Versi | Ringkasan |
+|---|---|
+| 8.0 | Viewer PDF/Markdown/gambar, edit file Office di aplikasi Windows, cek & pasang program pendukung |
+| 7.0 | Provider AI OpenAI-compatible (URL + API key) |
+| 6.0 | Editor file seperti VS Code |
+| 5.1 | AI tidak mengetik ke layar tanpa diminta |
+| 5.0 | AI mode chat, izin akses server, bisa mengendalikan aplikasi di layar (opencode) |
+| 4.0 | Asisten AI (Claude Code / Codex) |
+| 3.1 | Dokumentasi SSH key |
+| 3.0 | Login dengan SSH key |
+| 2.1 | Copy teks terbungkus jadi kalimat utuh |
+| 2.0 | Notifikasi toast |
+| 1.2 | Perbaikan copy multi-baris, lisensi MIT |
+| 1.1 | README lengkap |
+| 1.0 | Rilis pertama |
 
 ### Shortcut
 `Ctrl+Shift+T` tab baru · `Ctrl+Shift+E` split vertikal · `Ctrl+Shift+O` split horizontal · `Ctrl+Shift+W` tutup · `Alt+Panah` pindah pane · `Ctrl+Tab` pindah tab · `Ctrl+Shift+B` sidebar · `F11` layar penuh. Semua bisa diubah di `config.toml`.

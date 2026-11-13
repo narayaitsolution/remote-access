@@ -22,12 +22,20 @@ export function AIToolResult(arg1, arg2, arg3) {
   return window['go']['main']['App']['AIToolResult'](arg1, arg2, arg3);
 }
 
+export function AppForFile(arg1) {
+  return window['go']['main']['App']['AppForFile'](arg1);
+}
+
 export function CancelTransfer(arg1) {
   return window['go']['main']['App']['CancelTransfer'](arg1);
 }
 
 export function CaptureTmux(arg1, arg2) {
   return window['go']['main']['App']['CaptureTmux'](arg1, arg2);
+}
+
+export function CheckDeps() {
+  return window['go']['main']['App']['CheckDeps']();
 }
 
 export function Chmod(arg1, arg2, arg3) {
@@ -58,8 +66,16 @@ export function DownloadDialog(arg1, arg2) {
   return window['go']['main']['App']['DownloadDialog'](arg1, arg2);
 }
 
+export function EditLocally(arg1, arg2) {
+  return window['go']['main']['App']['EditLocally'](arg1, arg2);
+}
+
 export function GetState() {
   return window['go']['main']['App']['GetState']();
+}
+
+export function GetVersion() {
+  return window['go']['main']['App']['GetVersion']();
 }
 
 export function HostKeyAnswer(arg1, arg2) {
@@ -70,12 +86,24 @@ export function Info(arg1) {
   return window['go']['main']['App']['Info'](arg1);
 }
 
+export function InstallDep(arg1) {
+  return window['go']['main']['App']['InstallDep'](arg1);
+}
+
 export function ListAIProviders() {
   return window['go']['main']['App']['ListAIProviders']();
 }
 
 export function ListDir(arg1, arg2) {
   return window['go']['main']['App']['ListDir'](arg1, arg2);
+}
+
+export function LoginAI(arg1) {
+  return window['go']['main']['App']['LoginAI'](arg1);
+}
+
+export function MarkSetupDone() {
+  return window['go']['main']['App']['MarkSetupDone']();
 }
 
 export function Mkdir(arg1, arg2) {
@@ -96,6 +124,10 @@ export function OpenLocalFolder(arg1) {
 
 export function PickKeyFile() {
   return window['go']['main']['App']['PickKeyFile']();
+}
+
+export function ReadFileBase64(arg1, arg2) {
+  return window['go']['main']['App']['ReadFileBase64'](arg1, arg2);
 }
 
 export function ReadFileText(arg1, arg2, arg3) {
@@ -140,6 +172,10 @@ export function SaveSettings(arg1) {
 
 export function SetUnsavedCount(arg1) {
   return window['go']['main']['App']['SetUnsavedCount'](arg1);
+}
+
+export function StopLocalEdit(arg1) {
+  return window['go']['main']['App']['StopLocalEdit'](arg1);
 }
 
 export function TestAIProvider(arg1) {

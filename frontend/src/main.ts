@@ -3,6 +3,7 @@ import './style.css';
 import { HostKeyAnswer } from '../wailsjs/go/main/App';
 import { EventsOn } from '../wailsjs/runtime/runtime';
 import { AIPanel } from './ai';
+import { setupHooks, showSetup } from './setup';
 import { Layout } from './layout';
 import { Sidebar } from './sidebar';
 import { hooks, refreshState, store } from './state';
@@ -18,9 +19,12 @@ async function boot() {
   hooks.paneDisposed = p => ai.disposePane(p);
   hooks.toggleAI = () => ai.toggle();
   hooks.filesChanged = () => sidebar.refresh();
+  hooks.showSetup = focus => showSetup(false, focus);
+  setupHooks.changed = () => ai.reloadProviders();
   const layout = new Layout(sidebar);
   document.getElementById('app')!.append(h('div', { class: 'root' }, sidebar.el, layout.el, ai.el));
   if (store.configError) toast(store.configError, 'error');
+  if (!store.settings.setupDone) setTimeout(() => showSetup(true), 400);
 
   EventsOn('hostkey', async (p: HostKeyPrompt) => {
     const body = h('div', { class: 'modal-text' });

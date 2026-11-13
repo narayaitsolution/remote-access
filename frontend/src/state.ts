@@ -13,6 +13,7 @@ export interface Settings {
   sidebarVisible: boolean; sidebarWidth: number; sidebarFollow: boolean;
   keepaliveSeconds: number; tmuxMouse: boolean; downloadDir: string;
   aiVisible: boolean; aiWidth: number; aiProvider: string; aiModels: Record<string, string>;
+  setupDone: boolean;
   keys: Record<string, string>;
 }
 
@@ -52,4 +53,5 @@ export const hooks = {
   paneDisposed: (_p: Pane) => {},
   toggleAI: () => {},
   filesChanged: () => {},
+  showSetup: (_focus: string) => {},
 };

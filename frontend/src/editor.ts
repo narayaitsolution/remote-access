@@ -122,6 +122,9 @@ export class EditorView {
     }
   }
 
+  /** Current text in the editor. */
+  text(): string { return this.ed?.getModel()?.getValue() ?? ''; }
+
   focus() { this.ed?.focus(); }
 
   setFontSize(size: number) { this.ed?.updateOptions({ fontSize: size }); }
