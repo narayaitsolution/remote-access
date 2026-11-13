@@ -7,6 +7,7 @@ export namespace main {
 	    path: string;
 	    models: string[];
 	    defaultModel: string;
+	    kind: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new AIProviderInfo(source);
@@ -20,6 +21,49 @@ export namespace main {
 	        this.path = source["path"];
 	        this.models = source["models"];
 	        this.defaultModel = source["defaultModel"];
+	        this.kind = source["kind"];
+	    }
+	}
+	export class AIProviderInput {
+	    id: string;
+	    name: string;
+	    baseUrl: string;
+	    apiKey: string;
+	    keepKey: boolean;
+	    models: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AIProviderInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.baseUrl = source["baseUrl"];
+	        this.apiKey = source["apiKey"];
+	        this.keepKey = source["keepKey"];
+	        this.models = source["models"];
+	    }
+	}
+	export class AIProviderView {
+	    id: string;
+	    name: string;
+	    baseUrl: string;
+	    hasKey: boolean;
+	    models: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new AIProviderView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.baseUrl = source["baseUrl"];
+	        this.hasKey = source["hasKey"];
+	        this.models = source["models"];
 	    }
 	}
 	export class ProfileView {

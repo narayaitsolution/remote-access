@@ -11,6 +11,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -36,6 +37,9 @@ type aiChat struct {
 	cmd      *exec.Cmd
 	stdin    io.WriteCloser
 	running  bool
+	// OpenAI-compatible providers: conversation kept here, cancel stops the loop.
+	history []map[string]any
+	cancel  context.CancelFunc
 }
 
 type aiState struct {
@@ -189,7 +193,7 @@ func (a *App) handleMCP(w http.ResponseWriter, r *http.Request) {
 			Arguments json.RawMessage `json:"arguments"`
 		}
 		json.Unmarshal(req.Params, &p)
-		res := a.callTool(r, chatID, p.Name, p.Arguments)
+		res := a.callTool(r.Context(), chatID, p.Name, p.Arguments)
 		result = map[string]any{
 			"content": []map[string]any{{"type": "text", "text": res.Text}},
 			"isError": res.IsError,
@@ -208,7 +212,7 @@ func (a *App) handleMCP(w http.ResponseWriter, r *http.Request) {
 }
 
 // callTool forwards a tool call to the UI and waits for its result.
-func (a *App) callTool(r *http.Request, chatID, name string, args json.RawMessage) aiToolResult {
+func (a *App) callTool(ctx context.Context, chatID, name string, args json.RawMessage) aiToolResult {
 	known := false
 	for _, t := range aiTools {
 		known = known || t.Name == name
@@ -233,7 +237,7 @@ func (a *App) callTool(r *http.Request, chatID, name string, args json.RawMessag
 	select {
 	case res := <-ch:
 		return res
-	case <-r.Context().Done():
+	case <-ctx.Done():
 		a.emit("ai:toolCancel", reqID)
 		return aiToolResult{"cancelled", true}
 	case <-time.After(20 * time.Minute):
@@ -264,6 +268,7 @@ type AIProviderInfo struct {
 	Path         string   `json:"path"`
 	Models       []string `json:"models"`
 	DefaultModel string   `json:"defaultModel"`
+	Kind         string   `json:"kind"` // "cli" (Claude Code, Codex) or "openai" (OpenAI-compatible URL)
 }
 
 // AIProviders reports which AI CLIs are installed and suggested models.
@@ -278,12 +283,13 @@ func (a *App) AIProviders() []AIProviderInfo {
 	if len(codexModels) == 0 {
 		codexModels = []string{""} // empty = Codex's own default
 	}
-	return []AIProviderInfo{
-		{ID: "claude", Name: "Claude Code", Installed: claude != "", Path: claude,
+	list := []AIProviderInfo{
+		{ID: "claude", Name: "Claude Code", Installed: claude != "", Path: claude, Kind: "cli",
 			Models: []string{"opus", "sonnet", "haiku", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-2"}, DefaultModel: "sonnet"},
-		{ID: "codex", Name: "Codex", Installed: codex != "", Path: codex,
+		{ID: "codex", Name: "Codex", Installed: codex != "", Path: codex, Kind: "cli",
 			Models: codexModels, DefaultModel: firstNonEmpty(codexDefault, codexModels[0])},
 	}
+	return append(list, a.openAIProviderInfos()...)
 }
 
 func readCodexDefaultModel() string {
@@ -390,7 +396,7 @@ func (a *App) AISend(chatID, provider, model, text, context string) error {
 		a.ai.chats[chatID] = c
 	}
 	if c.provider != provider {
-		c.session = "" // a conversation cannot move between providers
+		c.session, c.history = "", nil // a conversation cannot move between providers
 	}
 	restart := c.running && (c.provider != provider || c.model != model || c.context != context)
 	c.provider, c.model, c.context = provider, model, context
@@ -412,6 +418,12 @@ func (a *App) AISend(chatID, provider, model, text, context string) error {
 		return err
 	case "codex":
 		return a.runCodex(c, text)
+	}
+	if strings.HasPrefix(provider, oaPrefix) {
+		if c.history != nil && len(c.history) > 0 && c.context != context {
+			c.history[0] = map[string]any{"role": "system", "content": aiSystemPrompt(context)}
+		}
+		return a.runOpenAI(c, text)
 	}
 	return errors.New("provider tidak dikenal")
 }
@@ -597,9 +609,12 @@ func (a *App) captureSession(c *aiChat, line string) {
 
 func (a *App) stopChat(c *aiChat) {
 	a.ai.mu.Lock()
-	cmd := c.cmd
-	c.running, c.cmd, c.stdin = false, nil, nil
+	cmd, cancel := c.cmd, c.cancel
+	c.running, c.cmd, c.stdin, c.cancel = false, nil, nil, nil
 	a.ai.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 	if cmd != nil && cmd.Process != nil {
 		killTree(cmd)
 	}

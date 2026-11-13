@@ -46,6 +46,10 @@ export function CreateFile(arg1, arg2) {
   return window['go']['main']['App']['CreateFile'](arg1, arg2);
 }
 
+export function DeleteAIProvider(arg1) {
+  return window['go']['main']['App']['DeleteAIProvider'](arg1);
+}
+
 export function DeleteProfile(arg1) {
   return window['go']['main']['App']['DeleteProfile'](arg1);
 }
@@ -64,6 +68,10 @@ export function HostKeyAnswer(arg1, arg2) {
 
 export function Info(arg1) {
   return window['go']['main']['App']['Info'](arg1);
+}
+
+export function ListAIProviders() {
+  return window['go']['main']['App']['ListAIProviders']();
 }
 
 export function ListDir(arg1, arg2) {
@@ -114,6 +122,10 @@ export function RunHidden(arg1, arg2, arg3) {
   return window['go']['main']['App']['RunHidden'](arg1, arg2, arg3);
 }
 
+export function SaveAIProvider(arg1) {
+  return window['go']['main']['App']['SaveAIProvider'](arg1);
+}
+
 export function SaveEditedFile(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['SaveEditedFile'](arg1, arg2, arg3, arg4, arg5);
 }
@@ -128,6 +140,10 @@ export function SaveSettings(arg1) {
 
 export function SetUnsavedCount(arg1) {
   return window['go']['main']['App']['SetUnsavedCount'](arg1);
+}
+
+export function TestAIProvider(arg1) {
+  return window['go']['main']['App']['TestAIProvider'](arg1);
 }
 
 export function Upload(arg1, arg2, arg3) {

@@ -24,6 +24,8 @@ export function Connect(arg1:string,arg2:string,arg3:boolean,arg4:number,arg5:nu
 
 export function CreateFile(arg1:string,arg2:string):Promise<void>;
 
+export function DeleteAIProvider(arg1:string):Promise<void>;
+
 export function DeleteProfile(arg1:string):Promise<void>;
 
 export function DownloadDialog(arg1:string,arg2:Array<string>):Promise<void>;
@@ -33,6 +35,8 @@ export function GetState():Promise<main.AppState>;
 export function HostKeyAnswer(arg1:string,arg2:boolean):Promise<void>;
 
 export function Info(arg1:string):Promise<main.SessionInfo>;
+
+export function ListAIProviders():Promise<Array<main.AIProviderView>>;
 
 export function ListDir(arg1:string,arg2:string):Promise<main.DirListing>;
 
@@ -58,6 +62,8 @@ export function Resize(arg1:string,arg2:number,arg3:number):Promise<void>;
 
 export function RunHidden(arg1:string,arg2:string,arg3:number):Promise<string>;
 
+export function SaveAIProvider(arg1:main.AIProviderInput):Promise<main.AIProviderView>;
+
 export function SaveEditedFile(arg1:string,arg2:string,arg3:string,arg4:string,arg5:boolean):Promise<string>;
 
 export function SaveProfile(arg1:main.ProfileInput):Promise<main.ProfileView>;
@@ -65,6 +71,8 @@ export function SaveProfile(arg1:main.ProfileInput):Promise<main.ProfileView>;
 export function SaveSettings(arg1:main.Settings):Promise<void>;
 
 export function SetUnsavedCount(arg1:number):Promise<void>;
+
+export function TestAIProvider(arg1:main.AIProviderInput):Promise<Array<string>>;
 
 export function Upload(arg1:string,arg2:Array<string>,arg3:string):Promise<void>;
 

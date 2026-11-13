@@ -84,6 +84,8 @@ type ProfileInput struct {
 type Config struct {
 	Settings Settings  `toml:"settings"`
 	Profiles []Profile `toml:"profile"`
+	// Extra AI providers speaking the OpenAI chat-completions API.
+	AIProviders []AIProviderConfig `toml:"ai_provider"`
 }
 
 func defaultKeys() map[string]string {
@@ -204,4 +206,14 @@ func newID() string {
 // shellQuote quotes s for a POSIX shell.
 func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// AIProviderConfig is an OpenAI-compatible endpoint ([[ai_provider]] in config.toml),
+// e.g. OpenRouter, Groq, Together, DeepSeek, a local Ollama/LM Studio, or OpenAI itself.
+type AIProviderConfig struct {
+	ID      string   `toml:"id"`
+	Name    string   `toml:"name"`
+	BaseURL string   `toml:"base_url"`          // e.g. https://openrouter.ai/api/v1
+	APIKey  string   `toml:"api_key,omitempty"` // "dpapi:..." encrypted
+	Models  []string `toml:"models,omitempty"`  // optional; otherwise fetched from /models
 }

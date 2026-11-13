@@ -2,14 +2,15 @@
 // user's own login; its tool calls arrive here, are shown to the user, need
 // approval when they change something, and are executed in the visible terminal.
 import {
-  AIProviders, AIReset, AISend, AIStop, AIToolResult, CaptureTmux, Info, ListDir, ReadFileText, RunHidden, WriteFileText,
+  AIProviders, AIReset, DeleteAIProvider, ListAIProviders, SaveAIProvider, TestAIProvider, AISend, AIStop, AIToolResult, CaptureTmux, Info, ListDir, ReadFileText, RunHidden, WriteFileText,
 } from '../wailsjs/go/main/App';
 import { EventsOn } from '../wailsjs/runtime/runtime';
 import type { Pane } from './pane';
 import { hooks, saveSettingsSoon, store } from './state';
-import { esc, fmtSize, h, promptText, toast } from './ui';
+import { confirmDialog, errMsg, esc, fmtSize, h, openModal, promptText, toast } from './ui';
+import { main } from '../wailsjs/go/models';
 
-interface ProviderInfo { id: string; name: string; installed: boolean; models: string[]; defaultModel: string }
+interface ProviderInfo { id: string; name: string; installed: boolean; models: string[]; defaultModel: string; kind: string }
 
 type ToolStatus = 'approval' | 'running' | 'done' | 'denied' | 'error' | 'cancelled';
 type Item =
@@ -92,7 +93,9 @@ export class AIPanel {
     this.el = h('div', { class: 'ai-panel' },
       resizer,
       h('div', { class: 'ai-head' },
-        h('span', { class: 'ai-title' }, 'AI'), this.providerSel, this.modelSel, h('span', { class: 'ai-spacer' }), newBtn, closeBtn),
+        h('span', { class: 'ai-title' }, 'AI'), this.providerSel, this.modelSel, h('span', { class: 'ai-spacer' }),
+        h('button', { class: 'icon-btn', title: 'Kelola provider AI (OpenAI-compatible: URL + API key)', html: '&#9881;', onclick: () => this.manageProviders() }),
+        newBtn, closeBtn),
       this.target, this.usageEl, this.list,
       h('div', { class: 'ai-foot' },
         this.input,
@@ -113,12 +116,36 @@ export class AIPanel {
     this.providers = (await AIProviders()) as unknown as ProviderInfo[];
     const s = store.settings;
     s.aiModels = s.aiModels || {};
-    this.providerSel.replaceChildren(...this.providers.map(p =>
-      h('option', { value: p.id, disabled: !p.installed }, p.name + (p.installed ? '' : ' (tidak terpasang)'))));
+    const opt = (p: ProviderInfo) => h('option', { value: p.id, disabled: !p.installed }, p.name + (p.installed ? '' : ' (tidak terpasang)'));
+    const cli = this.providers.filter(p => p.kind !== 'openai');
+    const api = this.providers.filter(p => p.kind === 'openai');
+    this.providerSel.replaceChildren(...cli.map(opt),
+      ...(api.length ? [h('optgroup', { label: 'OpenAI-compatible' }, ...api.map(opt))] : []));
     const usable = this.providers.find(p => p.id === s.aiProvider && p.installed) || this.providers.find(p => p.installed);
     if (usable) this.providerSel.value = usable.id;
     this.fillModels();
     this.render();
+  }
+
+  /** Dialog to add/edit/delete OpenAI-compatible providers (URL + API key). */
+  private async manageProviders() {
+    const listEl = h('div', { class: 'prov-list' });
+    const refresh = async () => {
+      const provs = await ListAIProviders();
+      listEl.replaceChildren(...(provs.length ? provs.map(p => h('div', { class: 'prov-row' },
+        h('div', { class: 'prov-text' }, h('b', {}, p.name), h('small', {}, p.baseUrl + (p.hasKey ? ' · API key tersimpan' : ' · tanpa API key'))),
+        h('button', { class: 'btn small', onclick: async () => { if (await editProvider(p)) { await refresh(); } } }, 'Edit'),
+        h('button', { class: 'btn small danger', onclick: async () => {
+          if (await confirmDialog('Hapus provider', `Hapus "${p.name}"?`, 'Hapus', true)) { await DeleteAIProvider(p.id); await refresh(); }
+        } }, 'Hapus'))) : [h('div', { class: 'muted' }, 'Belum ada provider tambahan.')]));
+    };
+    await refresh();
+    const body = h('div', { class: 'form' },
+      h('div', { class: 'modal-text' }, 'Tambahkan layanan AI yang memakai API OpenAI (chat/completions): OpenAI, OpenRouter, Groq, DeepSeek, Together, Mistral, Ollama/LM Studio lokal, dll. Modelnya akan muncul di pilihan model panel AI.'),
+      listEl,
+      h('button', { class: 'btn', onclick: async () => { if (await editProvider(null)) await refresh(); } }, '+ Tambah provider'));
+    await openModal('Provider AI', body, [{ label: 'Tutup', value: 'close', primary: true }]);
+    await this.init();
   }
 
   // ---------- panel chrome ----------
@@ -265,7 +292,7 @@ export class AIPanel {
     const p = this.pane;
     if (!p) return;
     const c = this.chat(true)!;
-    if (c.busy && this.provider() === 'codex') { toast('Codex masih bekerja'); return; }
+    if (c.busy && this.provider() !== 'claude') { toast('AI masih bekerja; tunggu atau tekan Stop'); return; }
     if (c.provider !== this.provider()) { AIReset(c.id); c.provider = this.provider(); }
     this.input.value = '';
     c.items.push({ kind: 'user', text });
@@ -311,7 +338,9 @@ export class AIPanel {
   private onLine(c: Chat, line: string) {
     let ev: any;
     try { ev = JSON.parse(line); } catch { return; }
-    if (c.provider === 'claude') this.onClaude(c, ev); else this.onCodex(c, ev);
+    if (c.provider === 'claude') this.onClaude(c, ev);
+    else if (c.provider === 'codex') this.onCodex(c, ev);
+    else this.onOpenAI(c, ev);
     if (c === this.chat()) this.render();
   }
 
@@ -341,6 +370,22 @@ export class AIPanel {
         this.setBusy(c, false);
         break;
       }
+    }
+  }
+
+  private onOpenAI(c: Chat, ev: any) {
+    switch (ev.type) {
+      case 'oa.text': c.items.push({ kind: 'text', text: ev.text }); break;
+      case 'oa.usage': {
+        const u = ev.usage || {};
+        const cached = u.prompt_tokens_details?.cached_tokens || 0;
+        c.usage.input += Math.max(0, (u.prompt_tokens || 0) - cached);
+        c.usage.cached += cached;
+        c.usage.output += u.completion_tokens || 0;
+        c.usage.turns++;
+        break;
+      }
+      case 'oa.done': this.setBusy(c, false); break;
     }
   }
 
@@ -548,8 +593,10 @@ export class AIPanel {
       };
       const l5 = lim('five_hour', 'Limit 5 jam'), l7 = lim('seven_day', '7 hari');
       parts.push(l5 || l7 ? [l5, l7].filter(Boolean).join(' · ') : '<span class="muted">Limit langganan muncul setelah pesan pertama</span>');
-    } else {
+    } else if (this.provider() === 'codex') {
       parts.push('<span class="muted">Codex tidak melaporkan sisa limit</span>');
+    } else {
+      parts.push('<span class="muted">Provider API: biaya/limit dilihat di dashboard penyedia</span>');
     }
     if (c && c.usage.turns) {
       const k = (n: number) => n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : String(n);
@@ -759,4 +806,41 @@ function markdown(src: string): string {
       .replace(/^\s*[-*] (.+)$/gm, '• $1')
       .replace(/\n/g, '<br>');
   }).join('');
+}
+
+/** Form for one OpenAI-compatible provider. Resolves true when saved. */
+async function editProvider(p: { id: string; name: string; baseUrl: string; hasKey: boolean; models: string[] } | null): Promise<boolean> {
+  const name = h('input', { type: 'text', value: p?.name ?? '', placeholder: 'contoh: OpenRouter' });
+  const url = h('input', { type: 'text', value: p?.baseUrl ?? '', placeholder: 'https://openrouter.ai/api/v1', spellcheck: 'false' });
+  const key = h('input', { type: 'password', placeholder: p?.hasKey ? '(tersimpan — kosongkan agar tidak berubah)' : 'sk-…  (kosongkan untuk server lokal tanpa key)' });
+  const models = h('input', { type: 'text', value: (p?.models ?? []).join(', '), placeholder: 'kosong = ambil otomatis dari /models', spellcheck: 'false' });
+  const info = h('div', { class: 'form-hint' });
+  const err = h('div', { class: 'form-error' });
+  const input = () => main.AIProviderInput.createFrom({
+    id: p?.id ?? '', name: name.value, baseUrl: url.value, apiKey: key.value,
+    keepKey: !!p?.hasKey && key.value === '', models: models.value,
+  });
+  const test = h('button', { class: 'btn small', onclick: async () => {
+    info.textContent = 'Menguji…'; err.textContent = '';
+    try {
+      const list = await TestAIProvider(input());
+      info.textContent = `Berhasil: ${list.length} model ditemukan${list.length ? ` (mis. ${list.slice(0, 4).join(', ')})` : ''}.`;
+    } catch (e) { info.textContent = ''; err.textContent = 'Gagal: ' + errMsg(e); }
+  } }, 'Tes koneksi');
+  const body = h('div', { class: 'form' },
+    h('label', {}, 'Nama', name),
+    h('label', {}, 'Base URL (OpenAI-compatible)', url,
+      h('small', {}, 'Contoh: https://api.openai.com/v1 · https://openrouter.ai/api/v1 · https://api.groq.com/openai/v1 · http://localhost:11434/v1 (Ollama)')),
+    h('label', {}, 'API key (disimpan terenkripsi)', key),
+    h('label', {}, 'Model (opsional, pisahkan dengan koma)', models),
+    h('div', { class: 'input-row' }, test, info),
+    err);
+  const r = await openModal(p ? 'Edit provider' : 'Tambah provider', body,
+    [{ label: 'Batal', value: 'cancel' }, { label: 'Simpan', value: 'ok', primary: true }],
+    async v => {
+      if (v !== 'ok') return true;
+      try { await SaveAIProvider(input()); return true; } catch (e) { err.textContent = errMsg(e); return false; }
+    });
+  if (r === 'ok') toast('Provider AI disimpan', 'success');
+  return r === 'ok';
 }
