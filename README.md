@@ -32,7 +32,7 @@ A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a
 ### Terminal that behaves like you expect
 - Based on xterm.js (the terminal used by VS Code) with GPU rendering, 256/true color and full tmux support.
 - **Mouse wheel scrolls tmux history directly** — no Shift needed. (The app enables `mouse on` in your running tmux server; disable with `tmux_mouse = false`.)
-- **Select = copy**: dragging always selects text locally, even inside tmux, and copies it to the Windows clipboard immediately.
+- **Select = copy**: dragging always selects text locally, even inside tmux, and copies it to the Windows clipboard immediately. Copied text is cleaned up: trailing blanks are removed from every line, lines that were only broken by the screen width are joined back together, and line breaks are Windows-style (CRLF), so multi-line text pastes correctly anywhere.
 - **Right-click = paste** (also middle-click, `Shift+Insert`, `Ctrl+Shift+V`).
 - `Ctrl+Wheel` changes the font size; `Ctrl+0` resets it.
 
@@ -152,6 +152,10 @@ wails build -clean -trimpath -ldflags "-s -w"
 
 [Wails](https://wails.io), [xterm.js](https://xtermjs.org), [golang.org/x/crypto/ssh](https://pkg.go.dev/golang.org/x/crypto/ssh), [pkg/sftp](https://github.com/pkg/sftp), [BurntSushi/toml](https://github.com/BurntSushi/toml).
 
+## License
+
+[MIT](LICENSE) © 2026 narayaitsolution
+
 ---
 
 ## Bahasa Indonesia
@@ -164,7 +168,7 @@ Aplikasi terminal SSH portable untuk Windows dengan sidebar file SFTP, alternati
 - **Password opsional disimpan**, dan jika disimpan **dienkripsi** dengan akun Windows Anda (DPAPI). Jika tidak disimpan, password ditanya setiap konek.
 - **Tahan koneksi tidak stabil:** keepalive mendeteksi koneksi putus/macet, aplikasi menyambung ulang sendiri lalu **kembali ke sesi tmux terakhir**. Jika tmux tidak ada, tetap login ke shell biasa.
 - **Scroll mouse langsung menggulir history tmux** tanpa menekan Shift.
-- **Blok teks = langsung tersalin** ke clipboard Windows. **Klik kanan = paste.**
+- **Blok teks = langsung tersalin** ke clipboard Windows, tanpa spasi kosong di ujung baris dan dengan baris baru format Windows sehingga teks multi-baris rapi saat di-paste. **Klik kanan = paste.**
 - **Tab dan split vertikal/horizontal** dengan shortcut cepat; setiap sesi baru dibuka dengan halaman pemilihan server.
 - **Sidebar SFTP** yang bisa ditampilkan/disembunyikan, secara default **mengikuti folder kerja terminal**, dan bisa dinavigasi sendiri.
 - **Toolbar ikon kecil satu baris:** naik folder, upload, download, file baru, folder baru, rename, hapus, refresh, ikuti terminal.

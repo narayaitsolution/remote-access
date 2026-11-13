@@ -145,8 +145,9 @@ export class Pane {
   }
 
   copySelection() {
-    const sel = this.term?.getSelection();
-    if (sel) ClipboardSetText(sel);
+    if (!this.term) return;
+    const text = cleanSelection(this.term.getSelection(), this.term.cols);
+    if (text) ClipboardSetText(text);
   }
 
   async paste() {
@@ -272,6 +273,26 @@ export class Pane {
   }
 }
 
+/**
+ * Turns a terminal selection into clean text for the Windows clipboard:
+ * - trailing blanks on every line are removed (tmux pads lines with real spaces),
+ * - a line that runs all the way to the right edge was wrapped by the screen width,
+ *   so it is joined with the next line instead of getting a line break,
+ * - line breaks become CRLF, which every Windows application understands.
+ */
+export function cleanSelection(sel: string, cols: number): string {
+  if (!sel) return '';
+  const lines = sel.split(/\r?\n/);
+  let out = '';
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const wrapped = raw.length >= cols && i < lines.length - 1;
+    out += wrapped ? raw : raw.replace(/[ \t ]+$/, '');
+    if (i < lines.length - 1 && !wrapped) out += '\r\n';
+  }
+  return out.replace(/(\r\n)+$/, '');
+}
+
 function b64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64);
   const out = new Uint8Array(bin.length);
@@ -285,6 +306,7 @@ function b64ToBytes(b64: string): Uint8Array {
 // for button events, which is its built-in "force selection" modifier.
 // The wheel is NOT touched, so it still scrolls tmux history directly.
 let dragging = false;
+let dragPane: Pane | null = null;
 function forceShift(e: MouseEvent) {
   if (!e.shiftKey) Object.defineProperty(e, 'shiftKey', { get: () => true });
 }
@@ -297,11 +319,22 @@ window.addEventListener('mousedown', e => {
   if (!p) return;
   if (e.button === 0 && e.detail === 1 && !e.shiftKey) p.term?.clearSelection();
   dragging = true;
+  dragPane = p;
   forceShift(e);
 }, true);
 for (const type of ['mousemove', 'mouseup', 'click', 'dblclick'] as const) {
   window.addEventListener(type, e => {
     if (dragging || inTerm(e)) forceShift(e as MouseEvent);
-    if (type === 'mouseup') dragging = false;
+    if (type === 'mouseup' && dragging) {
+      dragging = false;
+      const p = dragPane;
+      dragPane = null;
+      // Copy once the selection is final (after xterm handled this mouseup).
+      if (p && store.settings.copyOnSelect) setTimeout(() => { if (p.term?.hasSelection()) p.copySelection(); }, 0);
+    }
+    if (type === 'dblclick') {
+      const p = inTerm(e);
+      if (p && store.settings.copyOnSelect) setTimeout(() => { if (p.term?.hasSelection()) p.copySelection(); }, 0);
+    }
   }, true);
 }
