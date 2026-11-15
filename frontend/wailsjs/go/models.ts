@@ -112,6 +112,9 @@ export namespace main {
 	    setupDone: boolean;
 	    editorWordWrap: boolean;
 	    editorTabSize: number;
+	    companion: boolean;
+	    companionProvider: string;
+	    companionModel: string;
 	    keys: Record<string, string>;
 	
 	    static createFrom(source: any = {}) {
@@ -137,6 +140,9 @@ export namespace main {
 	        this.setupDone = source["setupDone"];
 	        this.editorWordWrap = source["editorWordWrap"];
 	        this.editorTabSize = source["editorTabSize"];
+	        this.companion = source["companion"];
+	        this.companionProvider = source["companionProvider"];
+	        this.companionModel = source["companionModel"];
 	        this.keys = source["keys"];
 	    }
 	}
@@ -175,6 +181,30 @@ export namespace main {
 		    }
 		    return a;
 		}
+	}
+	export class CompletionRequest {
+	    id: string;
+	    provider: string;
+	    model: string;
+	    path: string;
+	    language: string;
+	    prefix: string;
+	    suffix: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CompletionRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.provider = source["provider"];
+	        this.model = source["model"];
+	        this.path = source["path"];
+	        this.language = source["language"];
+	        this.prefix = source["prefix"];
+	        this.suffix = source["suffix"];
+	    }
 	}
 	export class DepStatus {
 	    id: string;

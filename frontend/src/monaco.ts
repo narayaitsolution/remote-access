@@ -6,6 +6,7 @@ import CssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
 import HtmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
 import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
 import { registerCodeIntel } from './codeintel';
+import { registerCompanion } from './companion';
 
 (self as any).MonacoEnvironment = {
   getWorker(_: string, label: string) {
@@ -21,6 +22,7 @@ import { registerCodeIntel } from './codeintel';
 monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({ noSemanticValidation: true, noSyntaxValidation: false });
 monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({ noSemanticValidation: true, noSyntaxValidation: false });
 registerCodeIntel(monaco);
+registerCompanion(monaco);
 
 const SPECIAL_NAMES: Record<string, string> = {
   dockerfile: 'dockerfile', makefile: 'shell', '.bashrc': 'shell', '.profile': 'shell', '.bash_profile': 'shell',

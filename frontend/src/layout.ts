@@ -1,5 +1,6 @@
 // Tabs, split panes, focus handling and keyboard shortcuts.
 import { SetUnsavedCount } from '../wailsjs/go/main/App';
+import { companion, companionSettings, toggleCompanion } from './companion';
 import { WindowIsFullscreen, WindowFullscreen, WindowUnfullscreen } from '../wailsjs/runtime/runtime';
 import { icons } from './icons';
 import { Pane } from './pane';
@@ -35,6 +36,12 @@ export class Layout {
   private tabBar = h('div', { class: 'tabs' });
   private area = h('div', { class: 'tab-area' });
   el: HTMLElement;
+  private companionBtn = h('button', {
+    class: 'ai-toggle companion-toggle',
+    title: 'AI Companion: saran kode otomatis di editor (seperti Copilot). Klik untuk aktifkan/matikan, klik kanan untuk memilih provider & model.',
+    onclick: () => toggleCompanion(),
+    oncontextmenu: (e: MouseEvent) => { e.preventDefault(); companionSettings(); },
+  }, 'Companion');
 
   constructor(private sidebar: Sidebar) {
     const btn = (icon: string, title: string, fn: () => void) =>
@@ -48,6 +55,7 @@ export class Layout {
         btn(icons.splitV, `Split vertikal (${k.split_vertical})`, () => this.split('row')),
         btn(icons.splitH, `Split horizontal (${k.split_horizontal})`, () => this.split('col')),
         btn(icons.tools, 'Program pendukung (cek & pasang)', () => hooks.showSetup('')),
+        this.companionBtn,
         h('button', { class: 'ai-toggle', title: `Asisten AI (${k.toggle_ai})`, onclick: () => hooks.toggleAI() }, 'AI')),
       this.area);
 
@@ -64,6 +72,14 @@ export class Layout {
     hooks.activePane = () => this.cur?.active ?? null;
     hooks.allPanes = () => this.tabs.flatMap(t => t.panes());
     hooks.enterPressed = p => { if (p === this.cur?.active) this.sidebar.poke(); };
+
+    const paintCompanion = () => {
+      this.companionBtn.classList.toggle('on', companion.enabled);
+      this.companionBtn.classList.toggle('busy', companion.status === 'thinking');
+      this.companionBtn.classList.toggle('err', companion.status === 'error');
+    };
+    companion.onChange(paintCompanion);
+    paintCompanion();
 
     window.addEventListener('keydown', e => this.onKey(e), true);
     window.addEventListener('wheel', e => this.onWheel(e), { capture: true, passive: false });

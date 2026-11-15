@@ -1,5 +1,6 @@
 // A remote file opened in the built-in editor (Monaco, like VS Code).
 import { OpenFileForEdit, SaveEditedFile } from '../wailsjs/go/main/App';
+import { companion, companionSettings, toggleCompanion } from './companion';
 import { saveSettingsSoon, store } from './state';
 import { errMsg, h, openModal, toast } from './ui';
 
@@ -19,6 +20,7 @@ export class EditorView {
   private saving = false;
   language = 'plaintext';
   private mod: MonacoMod | null = null;
+  private offCompanion: (() => void) | null = null;
 
   constructor(public sessionId: string, public path: string, private onChange: () => void) {
     this.crumb = h('div', { class: 'ed-crumb', title: path });
@@ -70,6 +72,7 @@ export class EditorView {
       autoClosingQuotes: 'languageDefined',
       autoIndent: 'full',
       matchBrackets: 'always',
+      inlineSuggest: { enabled: true, showToolbar: 'onHover' },
       renderWhitespace: 'selection',
       scrollBeyondLastLine: false,
       smoothScrolling: true,
@@ -84,6 +87,13 @@ export class EditorView {
     // VS Code shortcuts that the standalone Monaco editor doesn't define itself.
     this.ed.addAction({ id: 'rt.toggleWordWrap', label: 'View: Toggle Word Wrap', keybindings: [monaco.KeyMod.Alt | monaco.KeyCode.KeyZ], run: () => this.toggleWrap() });
     this.ed.addAction({ id: 'rt.changeLanguage', label: 'Change Language Mode', keybindings: [monaco.KeyMod.chord(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, monaco.KeyCode.KeyM)], run: () => { this.pickLanguage(); } });
+    this.ed.addAction({ id: 'rt.companionTrigger', label: 'AI Companion: Minta Saran', keybindings: [monaco.KeyMod.Alt | monaco.KeyCode.Backslash], run: ed => {
+      if (!companion.enabled) { toast('AI Companion belum aktif. Aktifkan lewat tombol Companion di bagian atas.'); return; }
+      ed.trigger('companion', 'editor.action.inlineSuggest.trigger', {});
+    } });
+    this.ed.addAction({ id: 'rt.companionToggle', label: 'AI Companion: Aktifkan / Matikan', run: () => { toggleCompanion(); } });
+    this.ed.addAction({ id: 'rt.companionSettings', label: 'AI Companion: Pilih Provider & Model', run: () => { companionSettings(); } });
+    this.offCompanion = companion.onChange(() => this.renderStatus());
     this.ed.addAction({ id: 'rt.save', label: 'File: Save', run: () => { this.save(); } });
     model.onDidChangeContent(() => { this.renderCrumb(); this.renderStatus(); this.onChange(); });
     this.ed.onDidChangeCursorSelection(() => this.renderStatus());
@@ -122,7 +132,15 @@ export class EditorView {
       h('span', {}, opts.insertSpaces ? 'Spasi: ' + opts.tabSize : 'Tab: ' + opts.tabSize),
       h('span', {}, 'UTF-8'),
       h('span', {}, eol),
+      this.companionBadge(),
       h('button', { class: 'ed-st-btn', title: 'Ganti bahasa (Ctrl+K M)', onclick: () => this.pickLanguage() }, this.langLabel));
+  }
+
+  private companionBadge(): HTMLElement {
+    const st = companion.status;
+    const label = st === 'off' ? 'Companion: mati' : st === 'thinking' ? 'Companion: berpikir…' : st === 'error' ? 'Companion: galat' : 'Companion: aktif';
+    const title = st === 'error' ? companion.error + '\nKlik untuk mengatur provider.' : 'AI Companion: Tab terima saran, Esc tolak, Alt+\\ minta saran. Klik untuk mengatur provider.';
+    return h('button', { class: 'ed-st-btn companion-' + st, title, onclick: () => companionSettings() }, label);
   }
 
   private runAction(id: string) {
@@ -216,6 +234,7 @@ export class EditorView {
   setFontSize(size: number) { this.ed?.updateOptions({ fontSize: size }); }
 
   dispose() {
+    this.offCompanion?.();
     const m = this.ed?.getModel();
     this.ed?.dispose();
     m?.dispose();

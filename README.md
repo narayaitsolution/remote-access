@@ -1,6 +1,6 @@
 # Remote Terminal
 
-**Current version: 9.0** — see [Version history](#version-history).
+**Current version: 10.0** — see [Version history](#version-history).
 
 A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a focused alternative to MobaXterm for people who mostly live in `ssh` + `tmux`.
 
@@ -92,6 +92,15 @@ A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a
 - If the file was changed on the server since you opened it (by someone else, a script or an AI tool), saving warns you before overwriting.
 - Text files up to 5 MB; binary files are refused (use Download).
 
+### AI Companion: inline code suggestions (like Copilot)
+- **Off by default.** Click **Companion** in the top bar (next to **AI**) to turn it on or off; the button turns purple while it is on. The choice is remembered.
+- While you edit code, a **grey suggestion** appears after a short pause in typing: the rest of the line, or the next few lines. **`Tab`** accepts it, **`Ctrl+→`** accepts one word, **`Esc`** dismisses it, **`Alt+\`** asks for a suggestion right away. Typing on simply cancels the request.
+- Uses an AI you have already connected; the provider and model are chosen separately from the chat panel (right-click **Companion**, or click *Companion* in the editor status bar):
+  - **OpenAI-compatible API** (OpenRouter, Groq, DeepSeek, OpenAI, a local Ollama / LM Studio, …): the fastest, usually under a second with a small model. Chosen first by default.
+  - **Claude Code** (default model `haiku`) or **Codex**: work without an API key, but each suggestion takes a few seconds and uses your subscription quota.
+- The editor status bar shows *Companion: aktif / berpikir… / galat* (hover for the error message).
+- **Privacy:** while it is on, the code around the cursor (up to about 8,000 characters) and the file name are sent to the chosen provider every time a suggestion is requested. Turn it off for files that must not leave your PC.
+
 ### Viewing PDF, Markdown, images and Office files
 Double-click a file in the sidebar and it opens in the main area according to its type:
 
@@ -139,7 +148,7 @@ Everything marked *built-in* below is inside the `.exe`. On first start the app 
 | `F11` | Full screen |
 | `Ctrl+Shift+A` | Show / hide the AI assistant |
 
-In the code editor: `Ctrl+S` save, `F1` command palette, `Ctrl+Space` suggestions, `Shift+Alt+F` format, `Alt+Z` word wrap, `Ctrl+K M` change language, `Ctrl+F` / `Ctrl+H` find / replace, `Ctrl+/` comment, `Ctrl+G` go to line.
+In the code editor: `Ctrl+S` save, `F1` command palette, `Ctrl+Space` suggestions, `Shift+Alt+F` format, `Alt+Z` word wrap, `Ctrl+K M` change language, `Ctrl+F` / `Ctrl+H` find / replace, `Ctrl+/` comment, `Ctrl+G` go to line. With AI Companion on: `Tab` accept suggestion, `Ctrl+→` accept one word, `Esc` dismiss, `Alt+\` request a suggestion.
 
 Shortcuts use `Ctrl+Shift` so they don't clash with `Ctrl+W`, `Ctrl+T` or the tmux prefix `Ctrl+B`. All of them can be changed in `config.toml`.
 
@@ -163,6 +172,9 @@ Created automatically on first start. You can edit it with any text editor while
   download_dir = ""          # remembered last download folder
   editor_word_wrap = false   # code editor: wrap long lines (also toggled with Alt+Z)
   editor_tab_size = 4        # code editor: tab width when the file itself gives no hint
+  ai_companion = false               # AI Companion inline suggestions (Companion button in the top bar)
+  ai_companion_provider = ""         # "claude", "codex" or "oa:<id>" of an [[ai_provider]]; "" = first usable
+  ai_companion_model = ""            # e.g. "haiku"; "" = the provider's default
 
   [settings.keys]
     new_tab = "Ctrl+Shift+T"
@@ -271,6 +283,7 @@ Versioning scheme: the **major** number goes up when a new feature is added; the
 
 | Version | Type | Changes |
 |---|---|---|
+| **10.0** | Feature | AI Companion: Copilot-style grey inline code suggestions in the editor, turned on/off with the new *Companion* button in the top bar; `Tab` accepts, `Alt+\` requests one; works with OpenAI-compatible APIs, Claude Code or Codex, with its own provider/model choice; status shown in the editor status bar; new `ai_companion`, `ai_companion_provider`, `ai_companion_model` settings |
 | **9.0** | Feature | Code editing like VS Code for Python, PHP, Java, Go, C/C++, C#, Ruby, Rust, Kotlin, shell, SQL and more: keyword/built-in autocomplete, Tab snippets, language picker in the status bar (`Ctrl+K M`), *Format* (`Shift+Alt+F`), command palette (`F1`), word wrap toggle (`Alt+Z`), sticky scroll and folding; minimap removed; new `editor_word_wrap` and `editor_tab_size` settings; README is English-only and points to `config.toml` for the full configuration |
 | **8.4** | Minor | Executables are published on GitHub Releases, built automatically by GitHub Actions for every version tag; tests run on every push; the repository builds right after cloning (Development section in README); test data no longer contains personal names |
 | **8.3** | Minor | New application icon (terminal window with a remote-connection signal) replacing the default framework "W" icon; `tools/mkicon` regenerates the icons from `assets/icon-source.png` |

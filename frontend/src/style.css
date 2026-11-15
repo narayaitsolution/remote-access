@@ -403,3 +403,13 @@ input, select, textarea { font: inherit; color: var(--text); }
 .sb-icon { width: 16px; height: 16px; align-items: center; justify-content: center; }
 .ficon { width: 16px; height: 16px; image-rendering: auto; display: block; }
 .ficon-svg { display: flex; }
+
+/* ---------- AI Companion ---------- */
+.companion-toggle.on { color: #e9d5ff; border-color: #a855f7; background: #a855f733; }
+.companion-toggle.busy { animation: companion-pulse 1s ease-in-out infinite; }
+.companion-toggle.err { border-color: #f87171; }
+@keyframes companion-pulse { 50% { opacity: .55; } }
+.ed-st-btn.companion-off { opacity: .75; }
+.ed-st-btn.companion-thinking { font-style: italic; }
+.ed-st-btn.companion-error { background: #b91c1c; }
+.companion-hint { font-size: 12px; max-width: 420px; }

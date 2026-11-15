@@ -4,6 +4,7 @@
 import {
   AIProviders, AIReset, DeleteAIProvider, ListAIProviders, SaveAIProvider, TestAIProvider, AISend, AIStop, AIToolResult, CaptureTmux, Info, ListDir, ReadFileText, RunHidden, WriteFileText,
 } from '../wailsjs/go/main/App';
+import { invalidateCompanionProviders } from './companion';
 import { EventsOn } from '../wailsjs/runtime/runtime';
 import type { Pane } from './pane';
 import { hooks, saveSettingsSoon, store } from './state';
@@ -117,6 +118,7 @@ export class AIPanel {
 
   private async init() {
     this.providers = (await AIProviders()) as unknown as ProviderInfo[];
+    invalidateCompanionProviders();
     const s = store.settings;
     s.aiModels = s.aiModels || {};
     const opt = (p: ProviderInfo) => h('option', { value: p.id, disabled: !p.installed }, p.name + (p.installed ? '' : ' (tidak terpasang)'));
