@@ -264,6 +264,38 @@ func (a *App) Connect(profileID, password string, savePassword bool, cols, rows 
 	return s.ID, nil
 }
 
+// ConnectSibling opens an extra terminal to the same server as session srcID,
+// reusing its login, as a plain shell (not the profile's tmux session, so it
+// does not mirror the original screen) starting in dir. Used by the AI agent
+// when the user's terminal is busy.
+func (a *App) ConnectSibling(srcID, dir string, cols, rows int) (string, error) {
+	src, err := a.session(srcID)
+	if err != nil {
+		return "", err
+	}
+	prof := src.prof
+	prof.TmuxSession = ""
+	s := newSession(a, prof, src.pw, cols, rows)
+	if err := s.connect(siblingScript(dir)); err != nil {
+		return "", err
+	}
+	a.sessMu.Lock()
+	a.sessions[s.ID] = s
+	a.sessMu.Unlock()
+	s.setState(stateConnected, "")
+	go s.run()
+	return s.ID, nil
+}
+
+// siblingScript is startScript without tmux, starting in dir when it exists.
+func siblingScript(dir string) string {
+	script := startScript("", "")
+	if dir == "" {
+		return script
+	}
+	return strings.Replace(script, `exec "${SHELL:-/bin/sh}" -l`, `cd -- `+shellQuote(dir)+` 2>/dev/null; exec "${SHELL:-/bin/sh}" -l`, 1)
+}
+
 // Reconnect restarts a session that ended or failed. Empty password = reuse.
 func (a *App) Reconnect(id, password string) error {
 	s, err := a.session(id)

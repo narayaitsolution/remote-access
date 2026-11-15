@@ -2,7 +2,7 @@
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
-import { Close, Connect, Reconnect, Resize, Write, WriteBinary } from '../wailsjs/go/main/App';
+import { Close, Connect, ConnectSibling, Reconnect, Resize, Write, WriteBinary } from '../wailsjs/go/main/App';
 import { ClipboardGetText, ClipboardSetText, EventsOn } from '../wailsjs/runtime/runtime';
 import { askPassword, Picker } from './picker';
 import { hooks, refreshState, store, type ProfileView } from './state';
@@ -258,6 +258,31 @@ export class Pane {
       this.status('Gagal konek: ' + errMsg(e), '31');
       this.status('Enter = coba lagi · Esc = kembali ke daftar server');
       this.failedRetry = () => { this.term!.write('\r\n'); this.start(p, password, false); };
+    }
+  }
+
+  /** Connects this (new) pane to the same server as src, reusing its login,
+   *  as a plain shell in dir. Used by the AI agent. Throws on failure. */
+  async startSibling(src: Pane, dir: string): Promise<void> {
+    this.profile = src.profile;
+    this.title = (src.profile?.name ?? 'Server') + ' · AI';
+    this.mountTerm();
+    this.setState('connecting');
+    await new Promise(r => setTimeout(r, 30)); // let fit settle
+    const { cols, rows } = this.term!;
+    try {
+      const id = await ConnectSibling(src.sessionId, dir, cols, rows);
+      this.sessionId = id;
+      this.term!.reset();
+      this.unsubs.push(
+        EventsOn('d:' + id, (b64: string) => this.term?.write(b64ToBytes(b64))),
+        EventsOn('s:' + id, (st: { state: string; msg: string }) => this.onSessionState(st)),
+      );
+      this.setState('connected');
+    } catch (e) {
+      this.setState('failed');
+      this.status('Gagal konek: ' + errMsg(e), '31');
+      throw e;
     }
   }
 

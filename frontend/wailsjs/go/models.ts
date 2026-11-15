@@ -112,6 +112,7 @@ export namespace main {
 	    setupDone: boolean;
 	    editorWordWrap: boolean;
 	    editorTabSize: number;
+	    aiAgentMode: boolean;
 	    companion: boolean;
 	    companionProvider: string;
 	    companionModel: string;
@@ -140,6 +141,7 @@ export namespace main {
 	        this.setupDone = source["setupDone"];
 	        this.editorWordWrap = source["editorWordWrap"];
 	        this.editorTabSize = source["editorTabSize"];
+	        this.aiAgentMode = source["aiAgentMode"];
 	        this.companion = source["companion"];
 	        this.companionProvider = source["companionProvider"];
 	        this.companionModel = source["companionModel"];

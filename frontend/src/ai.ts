@@ -4,6 +4,7 @@
 import {
   AIProviders, AIReset, DeleteAIProvider, ListAIProviders, SaveAIProvider, TestAIProvider, AISend, AIStop, AIToolResult, CaptureTmux, Info, ListDir, ReadFileText, RunHidden, WriteFileText,
 } from '../wailsjs/go/main/App';
+import { dangerReason } from './agent';
 import { invalidateCompanionProviders } from './companion';
 import { EventsOn } from '../wailsjs/runtime/runtime';
 import type { Pane } from './pane';
@@ -30,6 +31,10 @@ interface Chat {
   busy: boolean;
   autoRead: boolean;
   autoWrite: boolean;
+  /** Terminal the AI tools act on (T1 = pane, or one the AI opened). */
+  work: Pane;
+  /** T1, T2, … — the chat's own terminal first, then those opened by the AI. */
+  terminals: Pane[];
   usage: Usage;
   lastCost: number;
 }
@@ -37,11 +42,12 @@ interface Chat {
 interface RateWindow { utilization: number; resetsAt: number }
 
 /** Tools that only look; everything else changes something. Both need permission. */
-const READ_TOOLS = new Set(['read_screen', 'wait_for_screen', 'list_dir', 'read_file']);
+const READ_TOOLS = new Set(['read_screen', 'wait_for_screen', 'list_dir', 'read_file', 'open_file', 'use_terminal']);
 const TOOL_LABEL: Record<string, string> = {
   read_screen: 'Membaca layar', run_command: 'Menjalankan perintah di terminal', send_keys: 'Mengetik ke layar',
   run_background: 'Menjalankan perintah (latar belakang)',
   wait_for_screen: 'Memantau layar', list_dir: 'Melihat folder', read_file: 'Membaca file', write_file: 'Menulis file',
+  open_file: 'Membuka file di editor', edit_file: 'Mengedit file', open_terminal: 'Membuka terminal baru', use_terminal: 'Berpindah terminal',
 };
 const SHELLS = new Set(['bash', 'sh', 'dash', 'zsh', 'fish', 'ksh', 'tcsh', 'csh', 'ash', '-bash', '-sh', '-zsh']);
 
@@ -62,6 +68,7 @@ export class AIPanel {
   private sendBtn: HTMLButtonElement;
   private autoReadChk: HTMLInputElement;
   private autoWriteChk: HTMLInputElement;
+  private agentChk: HTMLInputElement;
   private limits: Record<string, RateWindow> = {};
   private approvals = new Map<string, (ok: boolean | 'all') => void>();
 
@@ -80,6 +87,15 @@ export class AIPanel {
     this.sendBtn = h('button', { class: 'btn primary ai-send', onclick: () => this.busy() ? this.stop() : this.send() }, 'Kirim');
     this.autoReadChk = h('input', { type: 'checkbox' });
     this.autoWriteChk = h('input', { type: 'checkbox' });
+    this.agentChk = h('input', { type: 'checkbox' });
+    this.agentChk.addEventListener('change', () => {
+      store.settings.aiAgentMode = this.agentChk.checked;
+      saveSettingsSoon();
+      toast(this.agentChk.checked
+        ? 'Mode Agen aktif: AI mengerjakan tugas langsung di layar dan tindakan disetujui otomatis (kecuali yang berbahaya).'
+        : 'Mode Agen mati: AI kembali minta izin dan tidak menyentuh layar tanpa diminta.', 'success');
+      this.render();
+    });
     this.autoReadChk.addEventListener('change', () => {
       const c = this.chat(true);
       if (c) c.autoRead = this.autoReadChk.checked;
@@ -102,6 +118,7 @@ export class AIPanel {
         this.input,
         h('div', { class: 'ai-foot-row' },
           h('div', { class: 'ai-autos' },
+            h('label', { class: 'ai-auto ai-agent', title: 'Mode Agen: AI mengerjakan tugas langsung di layar utama (mencari, membuka & mengedit file, menguji sampai bebas error, lalu melapor). Tindakan disetujui otomatis, kecuali yang berbahaya (hapus data, restart service, firewall, dll.).' }, this.agentChk, 'Mode Agen'),
             h('label', { class: 'ai-auto', title: 'AI boleh membaca layar/file server tanpa bertanya (chat ini saja)' }, this.autoReadChk, 'Izinkan baca otomatis'),
             h('label', { class: 'ai-auto', title: 'AI boleh menjalankan perintah, mengetik, dan menulis file tanpa bertanya (chat ini saja)' }, this.autoWriteChk, 'Izinkan ubah otomatis')),
           this.sendBtn)));
@@ -246,7 +263,7 @@ export class AIPanel {
     if (!p) return null;
     let c = this.chats.get(p);
     if (!c && create) {
-      c = { id: `c${++chatSeq}`, pane: p, provider: this.provider(), items: [], busy: false, autoRead: false, autoWrite: false,
+      c = { id: `c${++chatSeq}`, pane: p, work: p, terminals: [p], provider: this.provider(), items: [], busy: false, autoRead: false, autoWrite: false,
         usage: { input: 0, cached: 0, output: 0, cost: 0, turns: 0 }, lastCost: 0 };
       this.chats.set(p, c);
       this.byId.set(c.id, c);
@@ -281,20 +298,30 @@ export class AIPanel {
     const c = this.chat();
     if (!c) return;
     AIReset(c.id);
-    this.chats.delete(c.pane);
-    this.byId.delete(c.id);
+    this.forget(c);
     c.pane.el.classList.remove('ai-active');
     this.render();
     this.input.focus();
+  }
+
+  private forget(c: Chat) {
+    for (const [k, v] of this.chats) if (v === c) this.chats.delete(k);
+    this.byId.delete(c.id);
   }
 
   /** Forget the chat of a pane that is being closed. */
   disposePane(p: Pane) {
     const c = this.chats.get(p);
     if (!c) return;
+    if (p !== c.pane) {
+      // A terminal the AI opened: the chat goes on in the user's terminal.
+      this.chats.delete(p);
+      c.terminals = c.terminals.filter(t => t !== p);
+      if (c.work === p) c.work = c.pane;
+      return;
+    }
     AIReset(c.id);
-    this.chats.delete(p);
-    this.byId.delete(c.id);
+    this.forget(c);
   }
 
   private async send() {
@@ -314,14 +341,18 @@ export class AIPanel {
       ? `The user's terminal is an SSH session to server "${prof.name}" (${prof.user}@${prof.host}:${prof.port}).`
       : `The user's terminal is not connected to any server yet, so the tools are unavailable; just chat.`;
     let live = '';
-    if (p.connected) {
+    const w = c.work.connected ? c.work : p;
+    if (w.connected) {
       try {
-        const info = await Info(p.sessionId);
-        live = `[Terminal: ${info.tmux ? `tmux session "${info.tmux}"` : 'plain shell'}, foreground program: ${info.cmd || '?'}, directory: ${info.cwd || '?'}]\n`;
+        const info = await Info(w.sessionId);
+        const name = `T${c.terminals.indexOf(w) + 1 || 1}`;
+        live = `[Working terminal ${name}: ${info.tmux ? `tmux session "${info.tmux}"` : 'plain shell'}, foreground program: ${info.cmd || '?'}, directory: ${info.cwd || '?'}` +
+          (c.terminals.length > 1 ? `; terminals: ${c.terminals.map((t, i) => `T${i + 1}${t === c.work ? ' (working)' : ''}`).join(', ')}` : '') + ']\n';
       } catch { /* not critical */ }
     } else if (prof) {
       live = '[Terminal currently disconnected]\n';
     }
+    if (store.settings.aiAgentMode && prof) live = '[AGENT MODE]\n' + live;
     try {
       await AISend(c.id, c.provider, store.settings.aiModels[c.provider] || this.modelSel.value || '', live + text, context);
     } catch (e) {
@@ -449,7 +480,8 @@ export class AIPanel {
     const args = typeof ev.args === 'string' ? JSON.parse(ev.args || '{}') : (ev.args || {});
     const item: Extract<Item, { kind: 'tool' }> = { kind: 'tool', reqId: ev.reqId, name: ev.name, args, status: 'running', output: '', open: false };
     c.items.push(item);
-    const p = c.pane;
+    if (!c.work.connected && c.work !== c.pane) c.work = c.pane;
+    const p = c.work;
     if (!p.connected || !p.term) {
       item.status = 'error'; item.output = 'Terminal tidak terhubung';
       this.refresh(c);
@@ -457,11 +489,13 @@ export class AIPanel {
       return;
     }
     const isRead = READ_TOOLS.has(ev.name);
-    if (isRead ? !c.autoRead : !c.autoWrite) {
+    const agent = store.settings.aiAgentMode;
+    const danger = agent ? dangerReason(ev.name, args) : '';
+    if (danger || (!agent && (isRead ? !c.autoRead : !c.autoWrite))) {
       item.status = 'approval';
       this.refresh(c);
       if (!store.settings.aiVisible) this.toggle(true);
-      const decision = await this.askApproval(c, item);
+      const decision = await this.askApproval(c, item, danger);
       if ((item.status as ToolStatus) === 'cancelled') return; // CLI gave up meanwhile
       if (decision === false) {
         item.status = 'denied';
@@ -478,7 +512,8 @@ export class AIPanel {
     this.paneStatus(c, `AI: ${TOOL_LABEL[ev.name] || ev.name}${ev.name === 'run_command' ? ' — ' + String(args.command).slice(0, 80) : ''}`);
     this.refresh(c);
     try {
-      const out = await this.execTool(p, ev.name, args);
+      if (agent && ['read_screen', 'run_command', 'send_keys', 'wait_for_screen'].includes(ev.name)) hooks.revealPane(p);
+      const out = await this.execTool(c, p, ev.name, args);
       item.status = 'done';
       item.output = out;
       reply(out || '(no output)');
@@ -494,16 +529,17 @@ export class AIPanel {
   private refresh(c: Chat) { if (c === this.chat()) this.render(); }
 
   /** Approval shown both in the panel and on the terminal itself. */
-  private askApproval(c: Chat, item: Extract<Item, { kind: 'tool' }>): Promise<boolean | 'all'> {
+  private askApproval(c: Chat, item: Extract<Item, { kind: 'tool' }>, danger = ''): Promise<boolean | 'all'> {
     return new Promise(resolve => {
-      const bar = h('div', { class: 'ai-approve-bar' },
-        h('div', { class: 'ai-approve-title' }, `AI meminta izin: ${TOOL_LABEL[item.name] || item.name}`),
+      const bar = h('div', { class: 'ai-approve-bar' + (danger ? ' danger' : '') },
+        h('div', { class: 'ai-approve-title' }, danger ? `⚠ Tindakan berisiko (${danger}). Izinkan?` : `AI meminta izin: ${TOOL_LABEL[item.name] || item.name}`),
         h('pre', { class: 'ai-approve-cmd' }, summarize(item.name, item.args, 600)),
         h('div', { class: 'ai-approve-btns' },
           h('button', { class: 'btn', onclick: () => done(false) }, 'Tolak'),
-          h('button', { class: 'btn', onclick: () => done('all') }, READ_TOOLS.has(item.name) ? 'Izinkan semua baca' : 'Izinkan semua perubahan'),
-          h('button', { class: 'btn primary', onclick: () => done(true) }, 'Izinkan')));
-      c.pane.el.append(bar);
+          danger ? null : h('button', { class: 'btn', onclick: () => done('all') }, READ_TOOLS.has(item.name) ? 'Izinkan semua baca' : 'Izinkan semua perubahan'),
+          h('button', { class: 'btn primary' + (danger ? ' danger' : ''), onclick: () => done(true) }, 'Izinkan')));
+      if (danger) hooks.revealPane(c.work);
+      c.work.el.append(bar);
       this.paneStatus(c, 'AI menunggu izin Anda');
       const done = (v: boolean | 'all') => {
         this.approvals.delete(item.reqId);
@@ -515,21 +551,78 @@ export class AIPanel {
   }
 
   private paneStatus(c: Chat, text: string) {
-    let badge = c.pane.el.querySelector<HTMLElement>('.ai-badge');
+    for (const t of c.terminals) if (t !== c.work) t.el.querySelector('.ai-badge')?.remove();
+    let badge = c.work.el.querySelector<HTMLElement>('.ai-badge');
     if (!text) { badge?.remove(); return; }
-    if (!badge) { badge = h('div', { class: 'ai-badge' }); c.pane.el.append(badge); }
+    if (!badge) { badge = h('div', { class: 'ai-badge' }); c.work.el.append(badge); }
     badge.textContent = text;
   }
 
-  private async execTool(p: Pane, name: string, a: any): Promise<string> {
+  private termName(c: Chat, p: Pane) { return `T${c.terminals.indexOf(p) + 1}`; }
+
+  private termList(c: Chat): string {
+    return c.terminals.map((t, i) => `T${i + 1}${i === 0 ? ' (user\'s terminal)' : ' (opened by you)'}: ${t.title}${t.connected ? '' : ' — disconnected'}${t === c.work ? '  ← working terminal' : ''}`).join('\n');
+  }
+
+  /** Opens path in a visible editor tab and returns its code editor. */
+  private async editorFor(c: Chat, path: string) {
+    const pane = await hooks.openEditor(c.pane, path);
+    const view = pane?.editor;
+    if (!view) throw new Error(`Could not open ${path} in the editor (missing, binary, larger than 5 MB, or no permission).`);
+    const ed = view.codeEditor?.();
+    if (!ed) throw new Error(`${path} is not a text file; it cannot be edited in the editor.`);
+    return ed;
+  }
+
+  private async execTool(c: Chat, p: Pane, name: string, a: any): Promise<string> {
     switch (name) {
+      case 'open_terminal': {
+        let dir = String(a.directory || '');
+        if (!dir) { try { dir = (await Info(c.pane.sessionId)).cwd || ''; } catch { /* home */ } }
+        const t = await hooks.openAITerminal(c.pane, dir);
+        c.terminals.push(t);
+        this.chats.set(t, c);
+        c.work = t;
+        this.render();
+        await sleep(1200); // let the shell print its prompt
+        return `Opened ${this.termName(c, t)} in a new tab; it is now your working terminal. Use use_terminal("T1") to go back to the user's terminal.\nTerminals:\n${this.termList(c)}\n\nScreen of ${this.termName(c, t)}:\n${await readScreen(t, 0)}`;
+      }
+      case 'use_terminal': {
+        const n = Number(String(a.terminal || '').replace(/^T/i, ''));
+        const t = c.terminals[n - 1];
+        if (!t) throw new Error(`No terminal "${a.terminal}". Terminals:\n${this.termList(c)}`);
+        if (!t.connected) throw new Error(`${a.terminal} is not connected.`);
+        c.work = t;
+        hooks.revealPane(t);
+        this.render();
+        return `Working terminal is now ${this.termName(c, t)}.\nTerminals:\n${this.termList(c)}\n\nScreen:\n${await readScreen(t, 0)}`;
+      }
+      case 'open_file': {
+        const ed = await this.editorFor(c, String(a.path || ''));
+        await ed.aiReload();
+        return `Opened ${a.path} in an editor tab${ed.dirty ? ' (it has unsaved changes by the user)' : ''}. Content (line numbers are not part of the file):\n${ed.numbered()}`;
+      }
+      case 'edit_file': {
+        const path = String(a.path || '');
+        const edits = Array.isArray(a.edits) ? a.edits : [];
+        if (!edits.length) throw new Error('edits is empty');
+        const ed = await this.editorFor(c, path);
+        if (ed.dirty) throw new Error(`The user has unsaved changes to ${path} in the editor; nothing was changed. Ask the user to save or discard them first.`);
+        await ed.aiReload();
+        const where = ed.aiApplyEdits(edits);
+        await ed.aiSave();
+        hooks.filesChanged();
+        return `Edited and saved ${path}: changed ${where}. Now verify the change (syntax check / tests).`;
+      }
       case 'read_screen': return readScreen(p, clamp(Number(a.history_lines) || 0, 0, 2000));
       case 'run_command': {
         // Typing a shell command into e.g. opencode or vim would do damage: refuse.
         const fg = await foreground(p);
         if (fg && !SHELLS.has(fg)) {
           throw new Error(`"${fg}" is running in the foreground of the terminal, not the shell prompt, so the command was NOT typed. ` +
-            `Use run_background to run it without touching the user's screen. Only type into ${fg} if the user explicitly asked you to.`);
+            (store.settings.aiAgentMode
+              ? `Do not disturb ${fg}: call open_terminal to get a new tab with a shell prompt and run it there (or hand the task to ${fg} with send_keys if it is an AI coding agent and the task is large).`
+              : `Use run_background to run it without touching the user's screen. Only type into ${fg} if the user explicitly asked you to.`));
         }
         return runCommand(p, String(a.command || ''), clamp(Number(a.timeout_seconds) || 60, 5, 600));
       }
@@ -552,6 +645,10 @@ export class AIPanel {
       case 'write_file': {
         await WriteFileText(p.sessionId, String(a.path), String(a.content ?? ''));
         hooks.filesChanged();
+        if (store.settings.aiAgentMode) {
+          // Show the file the AI just wrote.
+          try { await (await this.editorFor(c, String(a.path))).aiReload(); } catch { /* still written */ }
+        }
         return `Wrote ${String(a.content ?? '').length} characters to ${a.path}`;
       }
     }
@@ -565,8 +662,12 @@ export class AIPanel {
     this.target.textContent = p?.profile
       ? `Terminal: ${p.title} (${p.profile.user}@${p.profile.host})${p.connected ? '' : ' — tidak terhubung'}`
       : 'Mode chat — terminal belum terhubung ke server.';
+    if (c && c.work !== c.pane && c.work.connected) this.target.textContent += ` · AI bekerja di T${c.terminals.indexOf(c.work) + 1} (${c.work.title})`;
     this.autoReadChk.checked = !!c?.autoRead;
     this.autoWriteChk.checked = !!c?.autoWrite;
+    this.agentChk.checked = !!store.settings.aiAgentMode;
+    this.autoReadChk.disabled = this.autoWriteChk.disabled = !!store.settings.aiAgentMode;
+    this.el.classList.toggle('agent-mode', !!store.settings.aiAgentMode);
     this.sendBtn.textContent = c?.busy ? 'Stop' : 'Kirim';
     this.sendBtn.classList.toggle('danger', !!c?.busy);
     this.renderUsage(c);
@@ -582,7 +683,12 @@ export class AIPanel {
         • <i>"jelaskan beda nginx dan apache"</i> (chat saja)<br>
         • <i>"kenapa service nginx di server ini gagal start?"</i><br>
         • <i>"jelaskan error yang ada di layar"</i><br>
-        • <i>"minta opencode memperbaiki test yang gagal, lalu pantau hasilnya"</i>` }));
+        • <i>"minta opencode memperbaiki test yang gagal, lalu pantau hasilnya"</i><br><br>
+        <b>Mode Agen</b> (centang di bawah): AI mengerjakan tugas sendiri langsung di layar sampai selesai —
+        mencari & membuka file, mengedit (perubahan disorot di editor), menguji sampai bebas error, lalu melapor.
+        Tindakan disetujui otomatis kecuali yang berisiko (hapus data, restart service, firewall…). Jika layar sedang
+        dipakai program lain, AI membuka terminal baru di tab baru.<br>
+        • <i>"ubah fungsi login di app.php supaya mencatat IP pengguna"</i>` }));
     } else {
       for (const it of c.items) nodes.push(this.renderItem(it));
       if (c.busy) nodes.push(h('div', { class: 'ai-thinking' }, h('span', { class: 'ai-dots' }), 'AI sedang bekerja…'));

@@ -106,11 +106,25 @@ var aiTools = []mcpTool{
 			"path":      str("Absolute path of the file."),
 			"max_bytes": num("Maximum bytes to read (default 200000)."),
 		}, "path")},
-	{"write_file", "Create or overwrite a text file on the remote server with the given content. The user sees the content and must approve it first.",
+	{"write_file", "Create or overwrite a text file on the remote server with the given content. Use it for new files or complete rewrites; for changes to an existing file prefer edit_file. Needs the user's permission (automatic in agent mode).",
 		obj(map[string]any{
 			"path":    str("Absolute path of the file."),
 			"content": str("Full new content of the file."),
 		}, "path", "content")},
+	{"open_file", "Open a file from the server in a VISIBLE editor tab of the app (like VS Code), so the user sees which file you work on, and return its content with line numbers (\"  12| code\"). The line numbers are for reference only; they are not part of the file. Use it before edit_file. Needs the user's permission (read).",
+		obj(map[string]any{"path": str("Absolute path of the file.")}, "path")},
+	{"edit_file", "Change an existing text file VISIBLY in the app's editor tab and save it: each edit replaces one exact piece of the current text (old_text) with new_text. The changed lines are highlighted for the user and can be undone with Ctrl+Z. old_text must match the file exactly, including indentation, and occur only once (include a few surrounding lines to make it unique); line numbers from open_file must not be included. All edits apply together or none. Needs the user's permission (automatic in agent mode).",
+		obj(map[string]any{
+			"path": str("Absolute path of the file."),
+			"edits": map[string]any{"type": "array", "description": "Replacements, applied together.", "items": obj(map[string]any{
+				"old_text": str("Exact current text to replace (unique in the file)."),
+				"new_text": str("Replacement text (may be empty to delete)."),
+			}, "old_text", "new_text")},
+		}, "path", "edits")},
+	{"open_terminal", "Open an extra terminal to the same server in a NEW TAB of the app (the user's existing terminals stay as they are) and make it your working terminal: read_screen, run_command, send_keys and wait_for_screen then act on it. Use it when the user's terminal is busy with a program (opencode, vim, a running server…) and you need a shell prompt. Returns its name (e.g. \"T2\").",
+		obj(map[string]any{"directory": str("Directory to start in (default: the current directory of the user's terminal).")})},
+	{"use_terminal", "Switch your working terminal: \"T1\" is the user's terminal where this chat started; T2, T3… are terminals you opened with open_terminal. Returns the list of terminals and the screen of the chosen one.",
+		obj(map[string]any{"terminal": str("Terminal name, e.g. \"T1\" or \"T2\".")}, "terminal")},
 }
 
 // ---------- MCP server (streamable HTTP, JSON responses only) ----------
@@ -379,10 +393,28 @@ The tools act on the remote server and the user's terminal only, never on the us
 - run_command: type a command into the user's visible shell — only when the user asks to run it in their terminal, or the change must happen in that shell.
 - send_keys + wait_for_screen: interact with the program on the user's screen — e.g. type a request into opencode, answer a prompt, <C-c>.
 
-THE USER'S SCREEN BELONGS TO THE USER. Do not type into it (send_keys / run_command) unless the user explicitly asked for that. In particular, if a program such as opencode, vim or htop is in the foreground, never type into it on your own initiative — a request like "run pwd" or "check the disk" means run_background, not typing into that program. Only interact with that program when the user says so (e.g. "tell opencode to …").
+- open_file / edit_file: open a file in a visible editor tab and change it there (the user sees the highlighted change).
+- open_terminal / use_terminal: open an extra terminal in a new tab when the user's terminal is busy, and switch between terminals.
+
+NORMAL MODE (messages without the [AGENT MODE] tag): THE USER'S SCREEN BELONGS TO THE USER. Do not type into it (send_keys / run_command) unless the user explicitly asked for that. In particular, if a program such as opencode, vim or htop is in the foreground, never type into it on your own initiative — a request like "run pwd" or "check the disk" means run_background, not typing into that program. Only interact with that program when the user says so (e.g. "tell opencode to …").
 Ask before destructive or irreversible actions (deleting data, restarting production services, firewall changes). If the user denies a tool, do not retry it; continue the conversation or ask what they prefer.
+
+` + agentModePrompt + `
 Reply in the same language the user writes in.`
 }
+
+// agentModePrompt applies to messages the UI tags with [AGENT MODE].
+const agentModePrompt = `AGENT MODE (messages that start with the [AGENT MODE] tag): the user has switched on agent mode and wants to WATCH you do the work on their screen. Questions and small talk are still answered as a normal chat; but when the message asks for work on the server, do the whole task yourself, end to end, visibly:
+1. Look first: read_screen to see what the working terminal shows (a shell prompt, or a program).
+2. Shell prompt in the foreground: work there with run_command, so the user sees every command (finding files with find/grep/ls, inspecting, running checks and tests). Use run_background only for long, noisy output the user does not need to watch.
+3. A program in the foreground:
+   - An AI coding agent (opencode, claude, codex, aider, gemini, crush…) and a LARGE task (many files, a refactor, a new feature): you may hand the task to it — type a clear, complete instruction with send_keys ending in <Enter>, follow it with wait_for_screen (long waits, repeat until it is done; answer its questions or permission prompts sensibly), then verify its result yourself (open_file, and checks/tests in a terminal with a shell prompt).
+   - Otherwise (a small task, or another program such as vim, htop, a running server or log tail): do NOT disturb it, never quit or close it. Call open_terminal to get a new tab with a shell and work there. Use use_terminal to switch between terminals.
+4. Files: open_file first, then edit_file with small exact replacements (the user sees each change highlighted in the editor). write_file only for new files or full rewrites.
+5. ALWAYS verify after changing anything, visibly with run_command: a syntax/compile check that fits the file (php -l, python3 -m py_compile, node --check, bash -n, go build ./... or go vet, tsc --noEmit, javac, ruby -c, nginx -t, apachectl configtest, python3 -m json.tool, a YAML parse…) and the project's tests when they exist (pytest, npm test, phpunit, go test, …); run the program or reload/test the service when that is the way to see the result.
+6. If verification fails, read the error, fix it with edit_file and verify again. At most 5 fix rounds; if it still fails, stop and report exactly what fails and why.
+7. Finish with a short report: what you changed (files and lines), how you verified it, and the result.
+Work without asking the user for confirmation between steps: the app approves your actions automatically, and asks the user itself before anything destructive (deleting data, stopping/restarting services, firewall, force-push…). Avoid destructive actions the task does not need. If the user denies an action, do not retry it; find another way or report. Keep chat messages short while you work.`
 
 // AISend sends a user message to the chat's AI, starting the CLI if needed.
 func (a *App) AISend(chatID, provider, model, text, context string) error {

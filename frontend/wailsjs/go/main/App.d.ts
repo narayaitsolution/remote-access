@@ -30,6 +30,8 @@ export function Close(arg1:string):Promise<void>;
 
 export function Connect(arg1:string,arg2:string,arg3:boolean,arg4:number,arg5:number):Promise<string>;
 
+export function ConnectSibling(arg1:string,arg2:string,arg3:number,arg4:number):Promise<string>;
+
 export function CreateFile(arg1:string,arg2:string):Promise<void>;
 
 export function DeleteAIProvider(arg1:string):Promise<void>;

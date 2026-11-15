@@ -226,6 +226,109 @@ export class EditorView {
     }
   }
 
+  // ---------- used by the AI agent (visible editing) ----------
+
+  /** Itself; Markdown and other views return their inner code editor. */
+  codeEditor(): EditorView { return this; }
+
+  /** Reloads the file from the server unless the user has unsaved changes. */
+  async aiReload() {
+    const m = this.ed?.getModel();
+    if (!m || this.dirty) return;
+    const file = await OpenFileForEdit(this.sessionId, this.path);
+    this.stamp = file.stamp;
+    if (m.getValue() !== file.content) {
+      m.setValue(file.content);
+    }
+    this.savedVersion = m.getAlternativeVersionId();
+    this.renderCrumb(); this.renderStatus(); this.onChange();
+  }
+
+  /** The content with line numbers, as the AI sees it. */
+  numbered(maxBytes = 200000): string {
+    const m = this.ed?.getModel();
+    if (!m) return '';
+    const lines = m.getLinesContent();
+    const w = String(lines.length).length;
+    let out = '', i = 0;
+    for (; i < lines.length && out.length < maxBytes; i++) out += `${String(i + 1).padStart(w)}| ${lines[i]}\n`;
+    if (i < lines.length) out += `… (${lines.length - i} more lines not shown)\n`;
+    return out;
+  }
+
+  /** Applies exact-text replacements visibly (undoable with Ctrl+Z), highlights
+   *  them and returns a summary. Throws when a text is missing or ambiguous. */
+  aiApplyEdits(edits: { old_text: string; new_text: string }[]): string {
+    const m = this.ed?.getModel();
+    const mod = this.mod;
+    if (!m || !mod || !this.ed) throw new Error('editor not ready');
+    const eol = m.getEOL();
+    const norm = (s: string) => s.replace(/\r\n/g, '\n').replace(/\n/g, eol);
+    const text = m.getValue();
+    const ops: { range: import('monaco-editor').Range; text: string; old: string }[] = [];
+    edits.forEach((e, n) => {
+      const oldT = norm(String(e.old_text ?? ''));
+      const newT = norm(String(e.new_text ?? ''));
+      if (!oldT) throw new Error(`edit ${n + 1}: old_text is empty (use write_file to create a file, or include surrounding text to insert)`);
+      const at = text.indexOf(oldT);
+      if (at < 0) throw new Error(`edit ${n + 1}: old_text was not found in ${this.path}. Nothing was changed. Use open_file to see the exact current text (including indentation) and try again.`);
+      if (text.indexOf(oldT, at + 1) >= 0) throw new Error(`edit ${n + 1}: old_text occurs more than once in ${this.path}. Nothing was changed. Include more surrounding lines so it is unique.`);
+      const s = m.getPositionAt(at), en = m.getPositionAt(at + oldT.length);
+      ops.push({ range: new mod.monaco.Range(s.lineNumber, s.column, en.lineNumber, en.column), text: newT, old: oldT });
+    });
+    for (let i = 0; i < ops.length; i++) for (let j = i + 1; j < ops.length; j++) {
+      if (mod.monaco.Range.areIntersectingOrTouching(ops[i].range, ops[j].range)) throw new Error(`edits ${i + 1} and ${j + 1} overlap; merge them into one edit. Nothing was changed.`);
+    }
+    this.ed.pushUndoStop();
+    this.ed.executeEdits('ai', ops.map(o => ({ range: o.range, text: o.text, forceMoveMarkers: true })));
+    this.ed.pushUndoStop();
+    // Highlight what changed: compute the new ranges from the end positions.
+    const changed: { start: number; end: number }[] = [];
+    let shift = 0;
+    for (const o of [...ops].sort((a, b) => a.range.startLineNumber - b.range.startLineNumber)) {
+      const start = o.range.startLineNumber + shift;
+      const newLines = o.text.split(eol).length;
+      changed.push({ start, end: start + newLines - 1 });
+      shift += newLines - o.old.split(eol).length;
+    }
+    const deco = this.ed.createDecorationsCollection(changed.map(c => ({
+      range: new mod.monaco.Range(c.start, 1, c.end, 1),
+      options: { isWholeLine: true, className: 'ai-edit-line', linesDecorationsClassName: 'ai-edit-gutter' },
+    })));
+    setTimeout(() => deco.clear(), 6000);
+    if (changed.length) this.ed.revealLinesInCenterIfOutsideViewport(changed[0].start, changed[0].end);
+    return changed.map(c => c.start === c.end ? `line ${c.start}` : `lines ${c.start}-${c.end}`).join(', ');
+  }
+
+  /** Saves without dialogs; throws a readable error (e.g. on a conflict). */
+  async aiSave() {
+    const m = this.ed?.getModel();
+    if (!m) throw new Error('editor not ready');
+    const version = m.getAlternativeVersionId();
+    try {
+      this.stamp = await SaveEditedFile(this.sessionId, this.path, m.getValue(), this.stamp, false);
+    } catch (e) {
+      const msg = String(e);
+      if (msg.startsWith('conflict:')) {
+        await this.forceReload();
+        throw new Error(`${this.path} was changed on the server meanwhile (${msg.slice(9).trim()}), so the edit was NOT saved; the editor now shows the server's version. Run open_file again and redo the edit.`);
+      }
+      throw e;
+    }
+    this.savedVersion = version;
+    this.renderCrumb(); this.renderStatus(); this.onChange();
+  }
+
+  private async forceReload() {
+    const m = this.ed?.getModel();
+    if (!m) return;
+    const file = await OpenFileForEdit(this.sessionId, this.path);
+    this.stamp = file.stamp;
+    m.setValue(file.content);
+    this.savedVersion = m.getAlternativeVersionId();
+    this.renderCrumb(); this.renderStatus(); this.onChange();
+  }
+
   /** Current text in the editor. */
   text(): string { return this.ed?.getModel()?.getValue() ?? ''; }
 

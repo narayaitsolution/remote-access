@@ -15,6 +15,7 @@ export interface Settings {
   aiVisible: boolean; aiWidth: number; aiProvider: string; aiModels: Record<string, string>;
   setupDone: boolean;
   editorWordWrap: boolean; editorTabSize: number;
+  aiAgentMode: boolean;
   companion: boolean; companionProvider: string; companionModel: string;
   keys: Record<string, string>;
 }
@@ -50,8 +51,12 @@ export const hooks = {
   activePane: (): Pane | null => null,
   allPanes: (): Pane[] => [],
   enterPressed: (_p: Pane) => {},
-  openEditor: (_src: Pane, _path: string): Promise<void> => Promise.resolve(),
+  openEditor: (_src: Pane, _path: string): Promise<Pane | null> => Promise.resolve(null),
+  /** Opens a new tab with an extra terminal to src's server (for the AI agent). */
+  openAITerminal: (_src: Pane, _dir: string): Promise<Pane> => Promise.reject(new Error('not ready')),
   paneFocused: (_p: Pane) => {},
+  /** Brings p's tab to the front (used while the AI agent works on it). */
+  revealPane: (_p: Pane) => {},
   paneDisposed: (_p: Pane) => {},
   toggleAI: () => {},
   filesChanged: () => {},

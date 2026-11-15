@@ -33,6 +33,7 @@ type Settings struct {
 	SetupDone        bool              `toml:"setup_done" json:"setupDone"`                    // first-run environment check shown
 	EditorWordWrap   bool              `toml:"editor_word_wrap" json:"editorWordWrap"`         // code editor: wrap long lines (Alt+Z)
 	EditorTabSize    int               `toml:"editor_tab_size" json:"editorTabSize"`           // code editor: tab width when the file gives no hint
+	AIAgentMode      bool              `toml:"ai_agent_mode" json:"aiAgentMode"`               // AI Sidebar works visibly on the screen (agent mode)
 	Companion        bool              `toml:"ai_companion" json:"companion"`                  // AI Companion: inline code suggestions in the editor
 	CompanionProv    string            `toml:"ai_companion_provider" json:"companionProvider"` // "" = first usable provider
 	CompanionModel   string            `toml:"ai_companion_model" json:"companionModel"`       // "" = provider default (Claude: haiku)

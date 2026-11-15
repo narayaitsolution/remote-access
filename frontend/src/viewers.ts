@@ -17,6 +17,8 @@ export interface FileView {
   focus(): void;
   setFontSize(size: number): void;
   dispose(): void;
+  /** The code editor behind this view, for the AI agent (none for PDF/images). */
+  codeEditor?(): EditorView;
 }
 
 const IMAGE_TYPES: Record<string, string> = {
@@ -198,6 +200,7 @@ class MarkdownView implements FileView {
   }
 
   save() { return this.editor.save(); }
+  codeEditor() { if (this.mode !== 'edit') this.setMode('edit'); return this.editor; }
   focus() { if (this.mode === 'preview') this.preview.focus(); else this.editor.focus(); }
   setFontSize(size: number) { this.editor.setFontSize(size); }
   dispose() { this.editor.dispose(); this.el.remove(); }

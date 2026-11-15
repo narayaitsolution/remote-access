@@ -67,6 +67,11 @@ export class Layout {
       if (p === this.cur?.active) { this.sidebar.bind(target(p)); hooks.paneFocused(target(p)); }
     };
     hooks.openEditor = (src, path) => this.openEditor(src, path);
+    hooks.openAITerminal = (src, dir) => this.openAITerminal(src, dir);
+    hooks.revealPane = p => {
+      const tab = this.tabs.find(t => t.panes().includes(p));
+      if (tab && tab !== this.cur) this.selectTab(tab);
+    };
     hooks.closePane = p => this.closePane(p);
     hooks.focusPane = p => this.focusPane(p);
     hooks.activePane = () => this.cur?.active ?? null;
@@ -103,10 +108,10 @@ export class Layout {
   }
 
   /** Opens a remote file in an editor tab (or switches to it if already open). */
-  async openEditor(src: Pane, path: string) {
+  async openEditor(src: Pane, path: string): Promise<Pane | null> {
     for (const t of this.tabs) {
       const ed = t.panes().find(p => p.editor && p.editor.path === path && p.editor.sessionId === src.sessionId);
-      if (ed) { this.focusPane(ed); return; }
+      if (ed) { this.focusPane(ed); return ed; }
     }
     const pane = new Pane(false);
     const tab = new Tab(pane);
@@ -115,7 +120,27 @@ export class Layout {
     this.area.append(tab.el);
     this.renderTree(tab);
     this.selectTab(tab);
-    if (!(await pane.openEditor(src, path))) this.closeTab(tab, true);
+    if (!(await pane.openEditor(src, path))) { this.closeTab(tab, true); return null; }
+    return pane;
+  }
+
+  /** New tab next to the current one with an extra terminal to src's server. */
+  async openAITerminal(src: Pane, dir: string): Promise<Pane> {
+    const pane = new Pane(false);
+    const tab = new Tab(pane);
+    const i = this.tabs.indexOf(this.cur);
+    this.tabs.splice(i + 1, 0, tab);
+    this.area.append(tab.el);
+    this.renderTree(tab);
+    this.selectTab(tab);
+    try {
+      await pane.startSibling(src, dir);
+    } catch (e) {
+      this.closeTab(tab, true);
+      throw e;
+    }
+    this.renderTabs();
+    return pane;
   }
 
   private reportUnsaved() {
