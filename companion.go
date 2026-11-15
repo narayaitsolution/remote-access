@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -36,22 +37,151 @@ var companion = struct {
 	cancel map[string]context.CancelFunc
 }{cancel: map[string]context.CancelFunc{}}
 
-const companionSystemPrompt = `You are a code completion engine inside a code editor, like GitHub Copilot.
-You receive a file with the marker <CURSOR> where the user's cursor is.
-Reply with ONLY the text to insert at <CURSOR>: no explanation, no markdown fences, no repetition of the code before or after the cursor.
-Continue the current line and, when it is natural, the next few lines (at most about 15). Match the file's indentation and style.
-If nothing useful should be inserted, reply with an empty message.`
+const companionSystemPrompt = `You are a code completion engine, like GitHub Copilot.
+Input: a file outline (imports and declarations from parts of the file not shown) and the code around the cursor, marked <CURSOR>.
+Reply with ONLY the text to insert at <CURSOR>: no explanation, no markdown fences, no repeated code.
+Complete the current line and, when natural, the next lines (at most ~15). Match indentation and style. Reply empty if nothing fits.`
+
+// Context budget per request (characters, roughly 4 per token): the code
+// around the cursor in full, plus an outline of the rest of the file, so the
+// model knows the imports, classes and functions without reading them all.
+const (
+	ctxBefore  = 3000 // code before the cursor
+	ctxAfter   = 1000 // code after the cursor
+	ctxImports = 600  // import/include lines from the rest of the file
+	ctxOutline = 1200 // declaration lines from the rest of the file
+)
+
+var (
+	reImport = regexp.MustCompile(`^\s*(import\s|from\s+\S+\s+import\s|#\s*include\s|using\s|use\s|require(_once)?[\s(]|include(_once)?[\s(]|package\s|namespace\s|extern\s+crate\s|const\s+\w+\s*=\s*require\()`)
+	reDecl   = regexp.MustCompile(`^\s*(export\s+)?(default\s+)?((async\s+)?def\s|class\s|interface\s|trait\s|enum\s|struct\s|impl\b|type\s|func\s|fn\s|pub\s|fun\s|function\s|module\s|object\s|record\s|(public|private|protected|internal|static|abstract|final|override|virtual|async)\s[^=;]*\(|(const|let|var)\s+\w+\s*=\s*(async\s*)?(\([^)]*\)|\w+)\s*=>)`)
+)
 
 // companionPrompt builds the user message, keeping the request small.
 func companionPrompt(r CompletionRequest) string {
-	prefix, suffix := r.Prefix, r.Suffix
-	if len(prefix) > 6000 {
-		prefix = prefix[len(prefix)-6000:]
+	before, restBefore := r.Prefix, ""
+	if len(before) > ctxBefore {
+		cut := len(before) - ctxBefore
+		if i := strings.IndexByte(before[cut:], '\n'); i >= 0 {
+			cut += i + 1 // start at a whole line
+		}
+		before, restBefore = before[cut:], before[:cut]
 	}
-	if len(suffix) > 2000 {
-		suffix = suffix[:2000]
+	after, restAfter := r.Suffix, ""
+	if len(after) > ctxAfter {
+		cut := ctxAfter
+		if i := strings.LastIndexByte(after[:cut], '\n'); i > 0 {
+			cut = i // end at a whole line
+		}
+		after, restAfter = after[:cut], after[cut:]
 	}
-	return fmt.Sprintf("File: %s (language: %s)\n\n%s<CURSOR>%s", r.Path, r.Language, prefix, suffix)
+	var b strings.Builder
+	fmt.Fprintf(&b, "File: %s (%s)\n", r.Path, r.Language)
+	if outline := fileOutline(restBefore, restAfter); outline != "" {
+		b.WriteString("Outline of the parts not shown:\n")
+		b.WriteString(outline)
+	}
+	b.WriteString("Code:\n")
+	b.WriteString(compactCode(before))
+	b.WriteString("<CURSOR>")
+	b.WriteString(compactCode(after))
+	return b.String()
+}
+
+// fileOutline lists import lines and declaration lines (signatures only) from
+// the parts of the file that are not sent in full. Declarations nearest the
+// cursor are kept when the budget runs out.
+func fileOutline(before, after string) string {
+	var imports, declBefore, declAfter []string
+	seen := map[string]bool{}
+	scan := func(text string, decls *[]string) {
+		for _, line := range strings.Split(text, "\n") {
+			line = strings.TrimRight(line, " \t\r")
+			t := strings.TrimSpace(line)
+			if t == "" || seen[t] {
+				continue
+			}
+			switch {
+			case reImport.MatchString(line):
+				seen[t] = true
+				imports = append(imports, t)
+			case reDecl.MatchString(line):
+				seen[t] = true
+				if len(line) > 160 {
+					line = line[:160] + "…"
+				}
+				*decls = append(*decls, strings.TrimRight(line, "{ ")+" …")
+			}
+		}
+	}
+	scan(before, &declBefore)
+	scan(after, &declAfter)
+
+	var b strings.Builder
+	n := 0
+	for _, l := range imports {
+		if n+len(l) > ctxImports {
+			b.WriteString("…\n")
+			break
+		}
+		b.WriteString(l + "\n")
+		n += len(l) + 1
+	}
+	// Take declarations alternately from just before and just after the window.
+	var keepBefore, keepAfter []string
+	n = 0
+	for i, j := len(declBefore)-1, 0; i >= 0 || j < len(declAfter); i, j = i-1, j+1 {
+		if i >= 0 {
+			if n+len(declBefore[i]) > ctxOutline {
+				break
+			}
+			keepBefore = append([]string{declBefore[i]}, keepBefore...)
+			n += len(declBefore[i]) + 1
+		}
+		if j < len(declAfter) {
+			if n+len(declAfter[j]) > ctxOutline {
+				break
+			}
+			keepAfter = append(keepAfter, declAfter[j])
+			n += len(declAfter[j]) + 1
+		}
+	}
+	for _, l := range keepBefore {
+		b.WriteString(l + "\n")
+	}
+	if len(keepBefore)+len(keepAfter) > 0 {
+		b.WriteString("  [code around the cursor]\n")
+	}
+	for _, l := range keepAfter {
+		b.WriteString(l + "\n")
+	}
+	if len(keepBefore)+len(keepAfter) == 0 && b.Len() == 0 {
+		return ""
+	}
+	return b.String()
+}
+
+// compactCode drops trailing spaces and squeezes runs of blank lines, which
+// costs tokens without adding meaning. Indentation is kept.
+func compactCode(s string) string {
+	lines := strings.Split(s, "\n")
+	out := lines[:0]
+	blank := 0
+	for i, l := range lines {
+		if i < len(lines)-1 { // the last line may end at the cursor: keep it as is
+			l = strings.TrimRight(l, " \t\r")
+		}
+		if strings.TrimSpace(l) == "" && i > 0 && i < len(lines)-1 {
+			blank++
+			if blank > 1 {
+				continue
+			}
+		} else {
+			blank = 0
+		}
+		out = append(out, l)
+	}
+	return strings.Join(out, "\n")
 }
 
 // AIComplete returns the code to insert at the cursor ("" for no suggestion).

@@ -1,6 +1,7 @@
 // AI Companion: Copilot-style grey inline suggestions in the code editor.
-// Off by default; the "Companion" button in the top bar turns it on and off.
-// Tab accepts a suggestion, Esc dismisses it, Alt+\ asks for one right away.
+// Off by default; the "AI Companion" button in the top bar turns it on and off.
+// To save tokens the AI is only asked when the user presses Alt+\; Tab accepts
+// the suggestion, Esc dismisses it.
 import type * as Monaco from 'monaco-editor';
 import { AICancelComplete, AIComplete, AIProviders } from '../wailsjs/go/main/App';
 import { main } from '../wailsjs/go/models';
@@ -66,7 +67,7 @@ export async function toggleCompanion() {
   store.settings.companion = true;
   saveSettingsSoon();
   setStatus('idle');
-  toast(`AI Companion aktif: ${r.p.name}${r.model ? ' · ' + r.model : ''}`, 'success');
+  toast(`AI Companion aktif (${r.p.name}${r.model ? ' · ' + r.model : ''}). Tekan Alt+\\ di editor untuk meminta saran.`, 'success');
 }
 
 /** Dialog to choose the provider and model. Resolves true when saved. */
@@ -84,8 +85,8 @@ export async function companionSettings(): Promise<boolean> {
     dl.replaceChildren(...(p?.models ?? []).filter(Boolean).map(m => h('option', { value: m })));
     if (!keepModel) modelInput.value = p?.id === 'claude' ? 'haiku' : p?.defaultModel ?? '';
     hint.textContent = p?.kind === 'openai'
-      ? 'API (OpenAI-compatible): paling cepat. Pilih model kecil/cepat untuk saran yang responsif.'
-      : 'CLI: saran muncul lebih lambat (beberapa detik) dan memakai kuota langganan Anda. Model kecil (mis. haiku) disarankan.';
+      ? 'API (OpenAI-compatible): paling cepat. Model kecil/cepat sudah cukup untuk saran kode.'
+      : 'CLI: saran butuh beberapa detik dan memakai kuota langganan Anda. Model kecil (mis. haiku) disarankan.';
   };
   provSel.addEventListener('change', () => fill(false));
   fill(true);
@@ -93,7 +94,7 @@ export async function companionSettings(): Promise<boolean> {
     h('label', {}, 'Provider AI', provSel),
     h('label', {}, 'Model', modelInput, dl),
     hint,
-    h('div', { class: 'muted companion-hint' }, 'Potongan kode di sekitar kursor dikirim ke provider ini setiap kali saran diminta.'));
+    h('div', { class: 'muted companion-hint' }, 'Saran hanya diminta saat Anda menekan Alt+\\. Yang dikirim: kode di sekitar kursor (sekitar 4.000 karakter) dan ringkasan import serta nama fungsi/kelas dari bagian file lainnya.'));
   const r = await openModal('AI Companion', body, [
     { label: 'Batal', value: 'cancel' },
     { label: 'Simpan', value: 'save', primary: true },
@@ -109,7 +110,8 @@ export async function companionSettings(): Promise<boolean> {
 /** Reloads providers after the AI panel's provider list changed. */
 export function invalidateCompanionProviders() { providers = null; }
 
-const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+/** The last suggestion, so it stays visible while the user types it out. */
+let last: { uri: string; start: number; before: string; insert: string } | null = null;
 
 let registered = false;
 
@@ -120,19 +122,30 @@ export function registerCompanion(monaco: typeof Monaco) {
   monaco.languages.registerInlineCompletionsProvider({ pattern: '**' }, {
     async provideInlineCompletions(model, position, context, token) {
       if (!companion.enabled) return { items: [] };
-      const r = await resolve().catch(() => null);
-      if (!r) return { items: [] };
-      const manual = context.triggerKind === monaco.languages.InlineCompletionTriggerKind.Explicit;
-      if (!manual) {
-        // Wait for a pause in typing; CLIs are slow, so wait longer for them.
-        await sleep(r.p.kind === 'openai' ? 450 : 1100);
-        if (token.isCancellationRequested) return { items: [] };
-        // Don't suggest in the middle of a word.
-        const after = model.getLineContent(position.lineNumber).slice(position.column - 1);
-        if (/^\w/.test(after)) return { items: [] };
-      }
+      const here = new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column);
       const offset = model.getOffsetAt(position);
       const text = model.getValue();
+      const manual = context.triggerKind === monaco.languages.InlineCompletionTriggerKind.Explicit;
+      if (!manual) {
+        // Only Alt+\ asks the AI (no tokens spent while typing). Monaco calls
+        // this on every edit, so just keep the last suggestion alive while the
+        // user types the same characters it suggested.
+        const l = last;
+        if (l && l.uri === model.uri.toString() && offset >= l.start &&
+          text.slice(Math.max(0, l.start - 200), l.start) === l.before) {
+          const typed = text.slice(l.start, offset);
+          if (l.insert.startsWith(typed) && typed.length < l.insert.length) {
+            return { items: [{ insertText: l.insert.slice(typed.length), range: here }] };
+          }
+        }
+        last = null;
+        return { items: [] };
+      }
+      const r = await resolve().catch(() => null);
+      if (!r) {
+        toast('AI Companion: belum ada AI yang terhubung', 'error');
+        return { items: [] };
+      }
       const id = `c${++reqSeq}`;
       const sub = token.onCancellationRequested(() => AICancelComplete(id));
       setStatus('thinking');
@@ -142,11 +155,16 @@ export function registerCompanion(monaco: typeof Monaco) {
           prefix: text.slice(0, offset), suffix: text.slice(offset),
         }));
         if (companion.enabled) setStatus('idle');
-        if (token.isCancellationRequested || !insert) return { items: [] };
-        return { items: [{ insertText: insert, range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column) }] };
+        if (token.isCancellationRequested) return { items: [] };
+        if (!insert) {
+          toast('AI Companion: tidak ada saran untuk posisi ini');
+          return { items: [] };
+        }
+        last = { uri: model.uri.toString(), start: offset, before: text.slice(Math.max(0, offset - 200), offset), insert };
+        return { items: [{ insertText: insert, range: here }] };
       } catch (e) {
         setStatus('error', errMsg(e));
-        if (manual) toast('AI Companion: ' + errMsg(e), 'error');
+        toast('AI Companion: ' + errMsg(e), 'error');
         return { items: [] };
       } finally {
         sub.dispose();

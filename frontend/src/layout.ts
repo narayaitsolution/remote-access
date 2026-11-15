@@ -38,10 +38,10 @@ export class Layout {
   el: HTMLElement;
   private companionBtn = h('button', {
     class: 'ai-toggle companion-toggle',
-    title: 'AI Companion: saran kode otomatis di editor (seperti Copilot). Klik untuk aktifkan/matikan, klik kanan untuk memilih provider & model.',
+    title: 'AI Companion: saran kode di editor (seperti Copilot), diminta dengan Alt+\\. Klik untuk aktifkan/matikan, klik kanan untuk memilih provider & model.',
     onclick: () => toggleCompanion(),
     oncontextmenu: (e: MouseEvent) => { e.preventDefault(); companionSettings(); },
-  }, 'Companion');
+  }, 'AI Companion');
 
   constructor(private sidebar: Sidebar) {
     const btn = (icon: string, title: string, fn: () => void) =>
@@ -56,7 +56,7 @@ export class Layout {
         btn(icons.splitH, `Split horizontal (${k.split_horizontal})`, () => this.split('col')),
         btn(icons.tools, 'Program pendukung (cek & pasang)', () => hooks.showSetup('')),
         this.companionBtn,
-        h('button', { class: 'ai-toggle', title: `Asisten AI (${k.toggle_ai})`, onclick: () => hooks.toggleAI() }, 'AI')),
+        h('button', { class: 'ai-toggle', title: `AI Sidebar: asisten AI di samping terminal (${k.toggle_ai})`, onclick: () => hooks.toggleAI() }, 'AI Sidebar')),
       this.area);
 
     // Editor panes share the connection of the terminal they came from.

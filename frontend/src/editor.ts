@@ -88,7 +88,7 @@ export class EditorView {
     this.ed.addAction({ id: 'rt.toggleWordWrap', label: 'View: Toggle Word Wrap', keybindings: [monaco.KeyMod.Alt | monaco.KeyCode.KeyZ], run: () => this.toggleWrap() });
     this.ed.addAction({ id: 'rt.changeLanguage', label: 'Change Language Mode', keybindings: [monaco.KeyMod.chord(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, monaco.KeyCode.KeyM)], run: () => { this.pickLanguage(); } });
     this.ed.addAction({ id: 'rt.companionTrigger', label: 'AI Companion: Minta Saran', keybindings: [monaco.KeyMod.Alt | monaco.KeyCode.Backslash], run: ed => {
-      if (!companion.enabled) { toast('AI Companion belum aktif. Aktifkan lewat tombol Companion di bagian atas.'); return; }
+      if (!companion.enabled) { toast('AI Companion belum aktif. Aktifkan lewat tombol AI Companion di bagian atas.'); return; }
       ed.trigger('companion', 'editor.action.inlineSuggest.trigger', {});
     } });
     this.ed.addAction({ id: 'rt.companionToggle', label: 'AI Companion: Aktifkan / Matikan', run: () => { toggleCompanion(); } });
@@ -138,7 +138,7 @@ export class EditorView {
 
   private companionBadge(): HTMLElement {
     const st = companion.status;
-    const label = st === 'off' ? 'Companion: mati' : st === 'thinking' ? 'Companion: berpikir…' : st === 'error' ? 'Companion: galat' : 'Companion: aktif';
+    const label = st === 'off' ? 'AI Companion: mati' : st === 'thinking' ? 'AI Companion: berpikir…' : st === 'error' ? 'AI Companion: galat' : 'AI Companion: Alt+\\';
     const title = st === 'error' ? companion.error + '\nKlik untuk mengatur provider.' : 'AI Companion: Tab terima saran, Esc tolak, Alt+\\ minta saran. Klik untuk mengatur provider.';
     return h('button', { class: 'ed-st-btn companion-' + st, title, onclick: () => companionSettings() }, label);
   }
