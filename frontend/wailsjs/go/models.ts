@@ -110,6 +110,8 @@ export namespace main {
 	    aiProvider: string;
 	    aiModels: Record<string, string>;
 	    setupDone: boolean;
+	    editorWordWrap: boolean;
+	    editorTabSize: number;
 	    keys: Record<string, string>;
 	
 	    static createFrom(source: any = {}) {
@@ -133,6 +135,8 @@ export namespace main {
 	        this.aiProvider = source["aiProvider"];
 	        this.aiModels = source["aiModels"];
 	        this.setupDone = source["setupDone"];
+	        this.editorWordWrap = source["editorWordWrap"];
+	        this.editorTabSize = source["editorTabSize"];
 	        this.keys = source["keys"];
 	    }
 	}

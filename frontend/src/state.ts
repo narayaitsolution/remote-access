@@ -14,6 +14,7 @@ export interface Settings {
   keepaliveSeconds: number; tmuxMouse: boolean; downloadDir: string;
   aiVisible: boolean; aiWidth: number; aiProvider: string; aiModels: Record<string, string>;
   setupDone: boolean;
+  editorWordWrap: boolean; editorTabSize: number;
   keys: Record<string, string>;
 }
 

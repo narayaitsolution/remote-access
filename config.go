@@ -28,9 +28,11 @@ type Settings struct {
 	DownloadDir      string            `toml:"download_dir" json:"downloadDir"`
 	AIVisible        bool              `toml:"ai_visible" json:"aiVisible"`
 	AIWidth          int               `toml:"ai_width" json:"aiWidth"`
-	AIProvider       string            `toml:"ai_provider" json:"aiProvider"` // "claude" or "codex"
-	AIModels         map[string]string `toml:"ai_models" json:"aiModels"`     // provider -> chosen model
-	SetupDone        bool              `toml:"setup_done" json:"setupDone"`   // first-run environment check shown
+	AIProvider       string            `toml:"ai_provider" json:"aiProvider"`          // "claude" or "codex"
+	AIModels         map[string]string `toml:"ai_models" json:"aiModels"`              // provider -> chosen model
+	SetupDone        bool              `toml:"setup_done" json:"setupDone"`            // first-run environment check shown
+	EditorWordWrap   bool              `toml:"editor_word_wrap" json:"editorWordWrap"` // code editor: wrap long lines (Alt+Z)
+	EditorTabSize    int               `toml:"editor_tab_size" json:"editorTabSize"`   // code editor: tab width when the file gives no hint
 	Keys             map[string]string `toml:"keys" json:"keys"`
 }
 
@@ -123,6 +125,7 @@ func defaultConfig() Config {
 		AIWidth:          400,
 		AIProvider:       "claude",
 		AIModels:         map[string]string{},
+		EditorTabSize:    4,
 		Keys:             defaultKeys(),
 	}}
 }
@@ -158,6 +161,9 @@ func loadConfig(path string) (Config, error) {
 	}
 	if _, err := toml.Decode(string(data), &cfg); err != nil {
 		return defaultConfig(), fmt.Errorf("config.toml tidak valid: %w", err)
+	}
+	if cfg.Settings.EditorTabSize < 1 || cfg.Settings.EditorTabSize > 16 {
+		cfg.Settings.EditorTabSize = 4
 	}
 	// Fill in any shortcut missing from the file.
 	if cfg.Settings.Keys == nil {
