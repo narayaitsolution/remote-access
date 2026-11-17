@@ -35,6 +35,7 @@ type App struct {
 
 	xferMu sync.Mutex
 	xfers  map[string]*Transfer
+	busyXf sync.WaitGroup // running upload/download batches (tests wait on it)
 
 	ai aiState
 

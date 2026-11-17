@@ -30,6 +30,7 @@ type Settings struct {
 	AIWidth          int               `toml:"ai_width" json:"aiWidth"`
 	AIProvider       string            `toml:"ai_provider" json:"aiProvider"`                  // "claude" or "codex"
 	AIModels         map[string]string `toml:"ai_models" json:"aiModels"`                      // provider -> chosen model
+	SkipUpdate       string            `toml:"skip_update_version" json:"skipUpdate"`          // update the user chose to skip at start-up
 	SetupDone        bool              `toml:"setup_done" json:"setupDone"`                    // first-run environment check shown
 	EditorWordWrap   bool              `toml:"editor_word_wrap" json:"editorWordWrap"`         // code editor: wrap long lines (Alt+Z)
 	EditorTabSize    int               `toml:"editor_tab_size" json:"editorTabSize"`           // code editor: tab width when the file gives no hint

@@ -25,9 +25,10 @@ export const isModalOpen = () => modalDepth > 0;
 
 export interface ModalButton { label: string; value: string; primary?: boolean; danger?: boolean }
 
-/** Shows a modal; resolves with the clicked button value, or null on Esc / cancel. */
+/** Shows a modal; resolves with the clicked button value, or null on Esc / cancel.
+ *  cls adds classes to the box: "center" (middle of the window), "wide". */
 export function openModal(title: string, body: HTMLElement, buttons: ModalButton[],
-  validate?: (value: string) => boolean | Promise<boolean>): Promise<string | null> {
+  validate?: (value: string) => boolean | Promise<boolean>, cls = ''): Promise<string | null> {
   return new Promise(resolve => {
     const prevFocus = document.activeElement as HTMLElement | null;
     modalDepth++;
@@ -46,8 +47,8 @@ export function openModal(title: string, body: HTMLElement, buttons: ModalButton
         class: 'btn' + (b.primary ? ' primary' : '') + (b.danger ? ' danger' : ''),
         onclick: () => click(b),
       }, b.label)));
-    const box = h('div', { class: 'modal' }, h('div', { class: 'modal-title' }, title), body, btnRow);
-    const overlay = h('div', { class: 'modal-overlay' }, box);
+    const box = h('div', { class: 'modal' + (cls ? ' ' + cls : '') }, h('div', { class: 'modal-title' }, title), body, btnRow);
+    const overlay = h('div', { class: 'modal-overlay' + (cls.includes('center') ? ' center' : '') }, box);
     overlay.addEventListener('keydown', e => {
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(null); }
       else if (e.key === 'Enter' && !(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLButtonElement)) {

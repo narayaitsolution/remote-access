@@ -1,5 +1,5 @@
 # Tests every push / pull request. Pushing a version tag (v8.4, v9.0, …) also
-# builds RemoteTerminal-<version>.exe and publishes it on GitHub Releases.
+# builds RemoteTerminal.exe and publishes it on GitHub Releases.
 name: Build
 
 on:
@@ -51,12 +51,21 @@ jobs:
           $v = '${{ github.ref_name }}'.TrimStart('v')
           $row = Select-String -Path README.md -Pattern ('^\| \*\*' + [regex]::Escape($v) + '\*\* \|') | Select-Object -First 1
           $notes = if ($row) { ($row.Line -split '\|')[3].Trim() } else { 'See the version history in README.md.' }
+          # Indonesian notes for the app's update window, from CHANGELOG.id.md ("## <version>" section).
+          $id = ''
+          $cl = (Get-Content -Raw -Encoding utf8 CHANGELOG.id.md) -replace "`r`n", "`n"
+          $mm = [regex]::Match($cl, '(?ms)^## ' + [regex]::Escape($v) + '[ \t]*\n(.*?)(?=^## |\z)')
+          if ($mm.Success) { $id = $mm.Groups[1].Value.Trim() }
           @"
           ## Remote Terminal $v
 
+          <!-- notes-id -->
+          $id
+          <!-- /notes-id -->
+
           $notes
 
-          **Download:** ``RemoteTerminal-$v.exe`` below — a single portable file, no installation. Requires Windows 10/11 (WebView2 is preinstalled).
+          **Download:** ``RemoteTerminal.exe`` below — a single portable file, no installation. Requires Windows 10/11 (WebView2 is preinstalled).
 
           Full history: [README → Version history](https://github.com/${{ github.repository }}#version-history)
           "@ | Set-Content -Encoding utf8 release-notes.md
@@ -67,12 +76,12 @@ jobs:
         with:
           name: Remote Terminal ${{ github.ref_name }}
           body_path: release-notes.md
-          files: build/bin/RemoteTerminal-*.exe
+          files: build/bin/RemoteTerminal.exe
 
       - name: Keep the build as an artifact
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         uses: actions/upload-artifact@v4
         with:
           name: RemoteTerminal-exe
-          path: build/bin/RemoteTerminal-*.exe
+          path: build/bin/RemoteTerminal.exe
           retention-days: 14

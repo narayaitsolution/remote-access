@@ -66,8 +66,6 @@ export class AIPanel {
   private list: HTMLElement;
   private input: HTMLTextAreaElement;
   private sendBtn: HTMLButtonElement;
-  private autoReadChk: HTMLInputElement;
-  private autoWriteChk: HTMLInputElement;
   private agentChk: HTMLInputElement;
   private limits: Record<string, RateWindow> = {};
   private approvals = new Map<string, (ok: boolean | 'all') => void>();
@@ -85,8 +83,6 @@ export class AIPanel {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.send(); }
     });
     this.sendBtn = h('button', { class: 'btn primary ai-send', onclick: () => this.busy() ? this.stop() : this.send() }, 'Kirim');
-    this.autoReadChk = h('input', { type: 'checkbox' });
-    this.autoWriteChk = h('input', { type: 'checkbox' });
     this.agentChk = h('input', { type: 'checkbox' });
     this.agentChk.addEventListener('change', () => {
       store.settings.aiAgentMode = this.agentChk.checked;
@@ -95,14 +91,6 @@ export class AIPanel {
         ? 'Mode Agen aktif: AI mengerjakan tugas langsung di layar dan tindakan disetujui otomatis (kecuali yang berbahaya).'
         : 'Mode Agen mati: AI kembali minta izin dan tidak menyentuh layar tanpa diminta.', 'success');
       this.render();
-    });
-    this.autoReadChk.addEventListener('change', () => {
-      const c = this.chat(true);
-      if (c) c.autoRead = this.autoReadChk.checked;
-    });
-    this.autoWriteChk.addEventListener('change', () => {
-      const c = this.chat(true);
-      if (c) c.autoWrite = this.autoWriteChk.checked;
     });
     const newBtn = h('button', { class: 'btn small', title: 'Mulai percakapan baru', onclick: () => this.newChat() }, 'Chat baru');
     const closeBtn = h('button', { class: 'icon-btn', title: 'Tutup panel AI (Ctrl+Shift+A)', html: '&times;', onclick: () => this.toggle(false) });
@@ -118,9 +106,7 @@ export class AIPanel {
         this.input,
         h('div', { class: 'ai-foot-row' },
           h('div', { class: 'ai-autos' },
-            h('label', { class: 'ai-auto ai-agent', title: 'Mode Agen: AI mengerjakan tugas langsung di layar utama (mencari, membuka & mengedit file, menguji sampai bebas error, lalu melapor). Tindakan disetujui otomatis, kecuali yang berbahaya (hapus data, restart service, firewall, dll.).' }, this.agentChk, 'Mode Agen'),
-            h('label', { class: 'ai-auto', title: 'AI boleh membaca layar/file server tanpa bertanya (chat ini saja)' }, this.autoReadChk, 'Izinkan baca otomatis'),
-            h('label', { class: 'ai-auto', title: 'AI boleh menjalankan perintah, mengetik, dan menulis file tanpa bertanya (chat ini saja)' }, this.autoWriteChk, 'Izinkan ubah otomatis')),
+            h('label', { class: 'ai-auto ai-agent', title: 'Mode Agen: AI mengerjakan tugas langsung di layar utama (mencari, membuka & mengedit file, menguji sampai bebas error, lalu melapor). Tindakan disetujui otomatis, kecuali yang berbahaya (hapus data, restart service, firewall, dll.).' }, this.agentChk, 'Mode Agen')),
           this.sendBtn)));
     this.setupResize(resizer);
     this.applyVisibility();
@@ -663,10 +649,7 @@ export class AIPanel {
       ? `Terminal: ${p.title} (${p.profile.user}@${p.profile.host})${p.connected ? '' : ' — tidak terhubung'}`
       : 'Mode chat — terminal belum terhubung ke server.';
     if (c && c.work !== c.pane && c.work.connected) this.target.textContent += ` · AI bekerja di T${c.terminals.indexOf(c.work) + 1} (${c.work.title})`;
-    this.autoReadChk.checked = !!c?.autoRead;
-    this.autoWriteChk.checked = !!c?.autoWrite;
     this.agentChk.checked = !!store.settings.aiAgentMode;
-    this.autoReadChk.disabled = this.autoWriteChk.disabled = !!store.settings.aiAgentMode;
     this.el.classList.toggle('agent-mode', !!store.settings.aiAgentMode);
     this.sendBtn.textContent = c?.busy ? 'Stop' : 'Kirim';
     this.sendBtn.classList.toggle('danger', !!c?.busy);

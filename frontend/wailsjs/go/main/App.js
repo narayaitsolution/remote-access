@@ -46,6 +46,10 @@ export function CheckDeps() {
   return window['go']['main']['App']['CheckDeps']();
 }
 
+export function CheckUpdate() {
+  return window['go']['main']['App']['CheckUpdate']();
+}
+
 export function Chmod(arg1, arg2, arg3) {
   return window['go']['main']['App']['Chmod'](arg1, arg2, arg3);
 }
@@ -78,12 +82,24 @@ export function DownloadDialog(arg1, arg2) {
   return window['go']['main']['App']['DownloadDialog'](arg1, arg2);
 }
 
+export function DownloadUpdate(arg1) {
+  return window['go']['main']['App']['DownloadUpdate'](arg1);
+}
+
 export function EditLocally(arg1, arg2) {
   return window['go']['main']['App']['EditLocally'](arg1, arg2);
 }
 
 export function FileIcons(arg1) {
   return window['go']['main']['App']['FileIcons'](arg1);
+}
+
+export function GetAppLocation() {
+  return window['go']['main']['App']['GetAppLocation']();
+}
+
+export function GetChangelog() {
+  return window['go']['main']['App']['GetChangelog']();
 }
 
 export function GetState() {

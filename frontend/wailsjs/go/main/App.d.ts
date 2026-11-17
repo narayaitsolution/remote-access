@@ -24,6 +24,8 @@ export function CaptureTmux(arg1:string,arg2:number):Promise<string>;
 
 export function CheckDeps():Promise<Array<main.DepStatus>>;
 
+export function CheckUpdate():Promise<main.UpdateInfo>;
+
 export function Chmod(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function Close(arg1:string):Promise<void>;
@@ -40,9 +42,15 @@ export function DeleteProfile(arg1:string):Promise<void>;
 
 export function DownloadDialog(arg1:string,arg2:Array<string>):Promise<void>;
 
+export function DownloadUpdate(arg1:string):Promise<string>;
+
 export function EditLocally(arg1:string,arg2:string):Promise<main.LocalEdit>;
 
 export function FileIcons(arg1:Array<string>):Promise<Record<string, string>>;
+
+export function GetAppLocation():Promise<main.AppLocation>;
+
+export function GetChangelog():Promise<string>;
 
 export function GetState():Promise<main.AppState>;
 

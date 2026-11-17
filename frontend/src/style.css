@@ -153,6 +153,7 @@ input, select, textarea { font: inherit; color: var(--text); }
 .xfer-head { display: flex; align-items: center; gap: 6px; }
 .xfer-icon { display: flex; color: var(--text-2); }
 .xfer-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.xfer-count { flex: none; font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 .xfer-bar { height: 3px; background: var(--bg-3); border-radius: 2px; margin: 3px 0; overflow: hidden; }
 .xfer-fill { height: 100%; background: var(--accent); transition: width .2s; }
 .xfer.done .xfer-fill { background: var(--ok); }
@@ -420,5 +421,30 @@ input, select, textarea { font: inherit; color: var(--text); }
 .ai-approve-bar.danger { border-color: #f87171; box-shadow: 0 10px 30px #000a, 0 0 0 2px #f8717155; }
 .ai-approve-bar.danger .ai-approve-title { color: #fecaca; }
 .ai-auto.ai-agent { color: #e9d5ff; font-weight: 600; }
-.ai-panel.agent-mode .ai-auto:not(.ai-agent) { opacity: .45; }
 .ai-panel.agent-mode .ai-head { box-shadow: inset 0 -2px 0 #a855f7; }
+
+/* ---------- information window & update ---------- */
+.modal-overlay.center { align-items: center; padding-top: 0; }
+.modal.wide { width: 680px; }
+.about-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.about-name { font-size: 18px; font-weight: 700; color: var(--text); }
+.about-version { color: var(--accent); font-weight: 600; }
+.about-check { font-size: 12px; max-width: 260px; text-align: right; }
+.about-section { font-weight: 600; margin: 8px 0 6px; color: var(--text); }
+.about-features { max-height: 46vh; overflow: auto; padding-right: 4px; }
+.about-group { margin-bottom: 10px; }
+.about-group-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-3); margin-bottom: 4px; }
+.about-group ul { margin: 0; padding-left: 18px; color: var(--text-2); line-height: 1.55; }
+.about-since { font-size: 10.5px; color: var(--text-3); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; margin-left: 2px; white-space: nowrap; }
+.about-details { margin-top: 8px; }
+.about-details summary { cursor: pointer; font-weight: 600; color: var(--text); }
+.about-history { max-height: 36vh; overflow: auto; margin-top: 6px; }
+.about-history h2, .update-notes h4 { font-size: 13.5px; margin: 12px 0 4px; color: var(--text); }
+.about-history ul, .update-notes ul { margin: 0; padding-left: 18px; }
+.about-foot { margin-top: 10px; font-size: 12px; }
+.about-foot a, .about-history a, .update-notes a { color: var(--accent); }
+.update-notes { max-height: 50vh; overflow: auto; margin-top: 8px; }
+.update-bar { height: 6px; margin: 10px 0 6px; }
+.install-steps ol { padding-left: 20px; line-height: 1.6; }
+.install-steps .warn-step { color: #fde68a; }
+.install-btns { display: flex; gap: 8px; margin-top: 6px; }

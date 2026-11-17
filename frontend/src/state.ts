@@ -15,6 +15,7 @@ export interface Settings {
   aiVisible: boolean; aiWidth: number; aiProvider: string; aiModels: Record<string, string>;
   setupDone: boolean;
   editorWordWrap: boolean; editorTabSize: number;
+  skipUpdate: string;
   aiAgentMode: boolean;
   companion: boolean; companionProvider: string; companionModel: string;
   keys: Record<string, string>;

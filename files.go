@@ -147,15 +147,20 @@ func (s *Session) chmod(p, mode string) error {
 type TransferInfo struct {
 	ID    string `json:"id"`
 	Kind  string `json:"kind"` // "upload" | "download"
-	Name  string `json:"name"`
+	Name  string `json:"name"` // the file being transferred
 	Total int64  `json:"total"`
 	Done  int64  `json:"done"`
 	State string `json:"state"` // running | done | error | cancelled
 	Error string `json:"error"`
 	Dir   string `json:"dir"` // remote dir (upload) or local dir (download)
 	Sess  string `json:"sessId"`
+	Index int    `json:"index"` // 1-based position of this file in its batch
+	Count int    `json:"count"` // number of files in the batch
+	Batch string `json:"batch"` // files dropped/selected together share a batch
 }
 
+// Transfer is one file. Files picked together form a batch that runs one file
+// after another and shares one cancel: cancelling any file stops the batch.
 type Transfer struct {
 	TransferInfo
 	cancel context.CancelFunc
@@ -163,13 +168,26 @@ type Transfer struct {
 	last   time.Time
 }
 
-func (a *App) newTransfer(sess, kind, name, dir string) (*Transfer, context.Context) {
+type xferBatch struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+	id     string
+	count  int
+}
+
+func newBatch(count int) *xferBatch {
 	ctx, cancel := context.WithCancel(context.Background())
-	t := &Transfer{TransferInfo: TransferInfo{ID: newID(), Kind: kind, Name: name, Dir: dir, Sess: sess, State: "running"}, cancel: cancel}
+	return &xferBatch{ctx: ctx, cancel: cancel, id: newID(), count: count}
+}
+
+func (a *App) newTransfer(b *xferBatch, sess, kind, name, dir string, index int, size int64) *Transfer {
+	t := &Transfer{TransferInfo: TransferInfo{ID: newID(), Kind: kind, Name: name, Dir: dir, Sess: sess, State: "running",
+		Total: size, Index: index, Count: b.count, Batch: b.id}, cancel: b.cancel}
 	a.xferMu.Lock()
 	a.xfers[t.ID] = t
 	a.xferMu.Unlock()
-	return t, ctx
+	a.emitTransfer(t, true)
+	return t
 }
 
 func (a *App) emitTransfer(t *Transfer, force bool) {
@@ -193,6 +211,7 @@ func (a *App) finishTransfer(t *Transfer, ctx context.Context, err error) {
 		t.State, t.Error = "error", err.Error()
 	default:
 		t.State = "done"
+		t.Done = t.Total
 	}
 	t.mu.Unlock()
 	a.emitTransfer(t, true)
@@ -237,57 +256,82 @@ func (p *progressWriter) Write(b []byte) (int, error) {
 	return n, err
 }
 
+// xferItem is one file (or a folder to create) in a batch.
+type xferItem struct {
+	src, dst string
+	size     int64
+	dir      bool
+}
+
 func (a *App) upload(s *Session, locals []string, remoteDir string) {
 	if len(locals) == 0 {
 		return
 	}
-	name := filepath.Base(locals[0])
-	if len(locals) > 1 {
-		name = fmt.Sprintf("%s +%d lainnya", name, len(locals)-1)
-	}
-	t, ctx := a.newTransfer(s.ID, "upload", name, remoteDir)
+	a.busyXf.Add(1)
 	go func() {
-		err := func() error {
+		defer a.busyXf.Done()
+		var items []xferItem
+		for _, l := range locals {
+			base := filepath.Dir(l)
+			filepath.WalkDir(l, func(lp string, d fs.DirEntry, err error) error {
+				if err != nil {
+					return nil
+				}
+				rel, _ := filepath.Rel(base, lp)
+				it := xferItem{src: lp, dst: path.Join(remoteDir, filepath.ToSlash(rel)), dir: d.IsDir()}
+				if fi, err := d.Info(); err == nil && !d.IsDir() {
+					it.size = fi.Size()
+				}
+				items = append(items, it)
+				return nil
+			})
+		}
+		a.runBatch(s, "upload", remoteDir, items, func(ctx context.Context, it xferItem, prog func(int64)) error {
 			c, err := s.getSFTP()
 			if err != nil {
 				return err
 			}
-			for _, l := range locals { // total size first
-				filepath.WalkDir(l, func(_ string, d fs.DirEntry, err error) error {
-					if err == nil && !d.IsDir() {
-						if fi, err := d.Info(); err == nil {
-							t.Total += fi.Size()
-						}
-					}
-					return nil
-				})
+			if it.dir {
+				return c.MkdirAll(it.dst)
 			}
-			a.emitTransfer(t, true)
-			prog := func(n int64) { t.add(n); a.emitTransfer(t, false) }
-			for _, l := range locals {
-				base := filepath.Dir(l)
-				err := filepath.WalkDir(l, func(lp string, d fs.DirEntry, err error) error {
-					if err != nil {
-						return err
-					}
-					if ctx.Err() != nil {
-						return ctx.Err()
-					}
-					rel, _ := filepath.Rel(base, lp)
-					rp := path.Join(remoteDir, filepath.ToSlash(rel))
-					if d.IsDir() {
-						return c.MkdirAll(rp)
-					}
-					return uploadFile(ctx, c, lp, rp, prog)
-				})
-				if err != nil {
-					return err
-				}
-			}
-			return nil
-		}()
-		a.finishTransfer(t, ctx, err)
+			return uploadFile(ctx, c, it.src, it.dst, prog)
+		})
 	}()
+}
+
+// runBatch transfers the items one by one, each file with its own progress.
+// It stops at the first error or when the batch is cancelled.
+func (a *App) runBatch(s *Session, kind, dir string, items []xferItem, do func(context.Context, xferItem, func(int64)) error) {
+	files := 0
+	for _, it := range items {
+		if !it.dir {
+			files++
+		}
+	}
+	b := newBatch(files)
+	defer b.cancel()
+	n := 0
+	for _, it := range items {
+		if b.ctx.Err() != nil {
+			return
+		}
+		if it.dir {
+			if err := do(b.ctx, it, nil); err != nil {
+				n++
+				t := a.newTransfer(b, s.ID, kind, path.Base(filepath.ToSlash(it.src)), dir, n, 0)
+				a.finishTransfer(t, b.ctx, err)
+				return
+			}
+			continue
+		}
+		n++
+		t := a.newTransfer(b, s.ID, kind, path.Base(filepath.ToSlash(it.src)), dir, n, it.size)
+		err := do(b.ctx, it, func(k int64) { t.add(k); a.emitTransfer(t, false) })
+		a.finishTransfer(t, b.ctx, err)
+		if err != nil {
+			return
+		}
+	}
 }
 
 func uploadFile(ctx context.Context, c *sftp.Client, local, remote string, prog func(int64)) error {
@@ -311,53 +355,34 @@ func (a *App) download(s *Session, remotes []string, localDir string) {
 	if len(remotes) == 0 {
 		return
 	}
-	name := path.Base(remotes[0])
-	if len(remotes) > 1 {
-		name = fmt.Sprintf("%s +%d lainnya", name, len(remotes)-1)
-	}
-	t, ctx := a.newTransfer(s.ID, "download", name, localDir)
+	a.busyXf.Add(1)
 	go func() {
-		err := func() error {
-			c, err := s.getSFTP()
-			if err != nil {
-				return err
-			}
-			for _, r := range remotes {
-				w := c.Walk(r)
-				for w.Step() {
-					if w.Err() == nil && !w.Stat().IsDir() {
-						t.Total += w.Stat().Size()
-					}
+		defer a.busyXf.Done()
+		c, err := s.getSFTP()
+		if err != nil {
+			b := newBatch(1)
+			a.finishTransfer(a.newTransfer(b, s.ID, "download", path.Base(remotes[0]), localDir, 1, 0), b.ctx, err)
+			return
+		}
+		var items []xferItem
+		for _, r := range remotes {
+			base := path.Dir(r)
+			w := c.Walk(r)
+			for w.Step() {
+				if w.Err() != nil {
+					continue
 				}
+				rel := strings.TrimPrefix(strings.TrimPrefix(w.Path(), base), "/")
+				items = append(items, xferItem{src: w.Path(), dst: filepath.Join(localDir, filepath.FromSlash(sanitizeLocal(rel))),
+					dir: w.Stat().IsDir(), size: w.Stat().Size()})
 			}
-			a.emitTransfer(t, true)
-			prog := func(n int64) { t.add(n); a.emitTransfer(t, false) }
-			for _, r := range remotes {
-				base := path.Dir(r)
-				w := c.Walk(r)
-				for w.Step() {
-					if err := w.Err(); err != nil {
-						return err
-					}
-					if ctx.Err() != nil {
-						return ctx.Err()
-					}
-					rel := strings.TrimPrefix(strings.TrimPrefix(w.Path(), base), "/")
-					lp := filepath.Join(localDir, filepath.FromSlash(sanitizeLocal(rel)))
-					if w.Stat().IsDir() {
-						if err := os.MkdirAll(lp, 0o755); err != nil {
-							return err
-						}
-						continue
-					}
-					if err := downloadFile(ctx, c, w.Path(), lp, prog); err != nil {
-						return err
-					}
-				}
+		}
+		a.runBatch(s, "download", localDir, items, func(ctx context.Context, it xferItem, prog func(int64)) error {
+			if it.dir {
+				return os.MkdirAll(it.dst, 0o755)
 			}
-			return nil
-		}()
-		a.finishTransfer(t, ctx, err)
+			return downloadFile(ctx, c, it.src, it.dst, prog)
+		})
 	}()
 }
 

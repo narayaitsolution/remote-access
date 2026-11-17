@@ -1,5 +1,6 @@
 // Tabs, split panes, focus handling and keyboard shortcuts.
 import { SetUnsavedCount } from '../wailsjs/go/main/App';
+import { showAbout } from './about';
 import { companion, companionSettings, toggleCompanion } from './companion';
 import { WindowIsFullscreen, WindowFullscreen, WindowUnfullscreen } from '../wailsjs/runtime/runtime';
 import { icons } from './icons';
@@ -55,6 +56,7 @@ export class Layout {
         btn(icons.splitV, `Split vertikal (${k.split_vertical})`, () => this.split('row')),
         btn(icons.splitH, `Split horizontal (${k.split_horizontal})`, () => this.split('col')),
         btn(icons.tools, 'Program pendukung (cek & pasang)', () => hooks.showSetup('')),
+        btn(icons.info, 'Informasi: versi, fitur, dan cek update', () => showAbout()),
         this.companionBtn,
         h('button', { class: 'ai-toggle', title: `AI Sidebar: asisten AI di samping terminal (${k.toggle_ai})`, onclick: () => hooks.toggleAI() }, 'AI Sidebar')),
       this.area);

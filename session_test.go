@@ -329,8 +329,30 @@ func TestSFTPOperations(t *testing.T) {
 	payload := strings.Repeat("hello world ", 50000)
 	os.WriteFile(filepath.Join(src, "sub", "big.txt"), []byte(payload), 0o644)
 	os.WriteFile(filepath.Join(src, "top.txt"), []byte("top"), 0o644)
+	var evMu sync.Mutex
+	var events []TransferInfo
+	a.emitHook = func(name string, data any) {
+		if ti, ok := data.(TransferInfo); ok && name == "xfer" {
+			evMu.Lock()
+			events = append(events, ti)
+			evMu.Unlock()
+		}
+	}
 	a.upload(s, []string{src}, "/work")
-	waitFor(t, "upload", func() bool { a.xferMu.Lock(); defer a.xferMu.Unlock(); return len(a.xfers) == 0 })
+	a.busyXf.Wait()
+	// One progress entry per file, numbered within the batch.
+	evMu.Lock()
+	done := map[string]TransferInfo{}
+	for _, e := range events {
+		if e.State == "done" {
+			done[e.Name] = e
+		}
+	}
+	evMu.Unlock()
+	if len(done) != 2 || done["big.txt"].Count != 2 || done["big.txt"].Total != int64(len(payload)) || done["big.txt"].Done != done["big.txt"].Total ||
+		done["top.txt"].Total != 3 || done["big.txt"].Batch != done["top.txt"].Batch || done["big.txt"].ID == done["top.txt"].ID {
+		t.Fatalf("per-file transfers = %+v", done)
+	}
 	ls, err = s.listDir("/work/proj/sub")
 	must(err)
 	if len(ls.Entries) != 1 || ls.Entries[0].Size != int64(len(payload)) {
@@ -340,7 +362,7 @@ func TestSFTPOperations(t *testing.T) {
 	dl := t.TempDir()
 	time.Sleep(50 * time.Millisecond)
 	a.download(s, []string{"/work/proj"}, dl)
-	waitFor(t, "download", func() bool { a.xferMu.Lock(); defer a.xferMu.Unlock(); return len(a.xfers) == 0 })
+	a.busyXf.Wait()
 	got, err := os.ReadFile(filepath.Join(dl, "proj", "sub", "big.txt"))
 	must(err)
 	if string(got) != payload {

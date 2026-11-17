@@ -1,12 +1,12 @@
 # Remote Terminal
 
-**Current version: 10.0** — see [Version history](#version-history).
+**Current version: 11.0** — click ⓘ in the app to see the version, all features and the version history. — see [Version history](#version-history).
 
 A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a focused alternative to MobaXterm for people who mostly live in `ssh` + `tmux`.
 
 ## Download
 
-**[⬇ Download the latest `RemoteTerminal-<version>.exe` from Releases](https://github.com/narayaitsolution/remote-access/releases/latest)** — one portable file, no installation (Windows 10/11).
+**[⬇ Download the latest `RemoteTerminal.exe` from Releases](https://github.com/narayaitsolution/remote-access/releases/latest)** — one portable file, no installation (Windows 10/11).
 
 ## Features
 
@@ -14,6 +14,12 @@ A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a
 - No installer. Copy `RemoteTerminal.exe` anywhere and run it.
 - All settings are stored in a plain-text `config.toml` next to the `.exe` (falls back to `%APPDATA%\RemoteTerminal` if that folder is not writable).
 - Requires only WebView2, which is preinstalled on current Windows 10/11.
+- The file is always named `RemoteTerminal.exe` (no version in the name), so updating is just replacing that one file. The version is shown in the **Information** window (ⓘ in the top bar) and in the window title.
+
+### Information window and updates
+- **ⓘ in the top bar** opens a window in the middle of the screen with the app version, every feature (with the version that introduced it) and the full version history in Indonesian, plus a **Check for update** button.
+- **At start-up the app checks GitHub Releases for a newer version in the background.** If there is none, or there is no internet / GitHub cannot be reached, nothing is shown. If there is one, a window lists what is new and offers **Update** or **Skip** (*Skip* = don't offer this version again at start-up; it can still be installed from the Information window).
+- **Update** downloads the new `RemoteTerminal.exe` into your **Downloads** folder (with a progress bar) and then explains how to install it: close the app, move the new file into the app's folder replacing the old one, and **do not delete `config.toml` and `known_hosts`** — they hold your saved servers, encrypted passwords and settings. Buttons open the Downloads folder and the app folder. The running app is never replaced automatically.
 
 ### Server picker
 - Every new tab or split opens a server list, like MobaXterm's start page.
@@ -41,7 +47,8 @@ A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a
 ### Terminal that behaves like you expect
 - Based on xterm.js (the terminal used by VS Code) with GPU rendering, 256/true color and full tmux support.
 - **Mouse wheel scrolls tmux history directly** — no Shift needed. (The app enables `mouse on` in your running tmux server; disable with `tmux_mouse = false`.)
-- **Select = copy**: dragging always selects text locally, even inside tmux, and copies it to the Windows (host) clipboard — never to tmux on the server — with a "Copy berhasil" notification. Copied text is cleaned up: padding blanks are removed, text that a program wrapped to the screen width (padding the rest of the row with spaces) is joined back into flowing sentences, real line breaks are kept as Windows-style CRLF, so it pastes cleanly into Notepad or Word.
+- **Select = copy**: dragging selects text locally — in a plain shell as well as inside tmux or a full-screen program — and copies it to the Windows (host) clipboard — never to tmux on the server — with a "Copy berhasil" notification. Copied text is cleaned up: padding blanks are removed, text that a program wrapped to the screen width (padding the rest of the row with spaces) is joined back into flowing sentences, real line breaks are kept as Windows-style CRLF, so it pastes cleanly into Notepad or Word.
+- **Clicks reach the program on screen**: when a program uses the mouse (opencode, htop, mc, tmux with mouse mode…), a plain click goes to it, so you can click its tabs, close buttons, menus and panes. A drag, a double-click (word) or a triple-click (line) still selects and copies locally. In a plain shell, xterm's normal selection is used.
 - **Right-click = paste** (also middle-click, `Shift+Insert`, `Ctrl+Shift+V`).
 - `Ctrl+Wheel` changes the font size; `Ctrl+0` resets it.
 
@@ -57,7 +64,7 @@ A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a
 - Editable path bar.
 - **Right-click menu** on files/folders: Open, Download, Rename, Delete, Copy path, Change permissions (chmod), Open in terminal (`cd` there), Upload into this folder. Right-click on empty space: Upload, New file, New folder, Copy path, Open in terminal, Refresh.
 - Multi-select with `Ctrl`/`Shift`+click; download or delete many items at once.
-- Upload and download whole folders, with a progress bar per transfer and a cancel button. Click a finished download to open its folder in Explorer.
+- Upload and download files and whole folders with **a progress bar for each file** ("3/12" shows which file of the batch it is) and a cancel button (cancelling stops the rest of that batch too); one notification per batch. Click a finished download to open its folder in Explorer.
 - **Drag & drop from Windows Explorer** onto the sidebar to upload (drop onto a folder row to upload into that folder).
 - Keyboard: `Enter` open, `Backspace` up, `F2` rename, `Del` delete, `F5` refresh, `Ctrl+A` select all.
 
@@ -71,7 +78,7 @@ A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a
   - type text and keys into whatever is running — e.g. **give instructions to opencode running in tmux**, answer prompts, navigate TUIs, `Ctrl+C` (supports Enter, Tab, Shift+Tab, Esc, arrows, F1–F12, Ctrl+key, Alt+key) — **only when you explicitly ask it to**,
   - watch the screen until some text appears or it stops changing (e.g. wait for opencode's answer),
   - list, read and write files over SFTP.
-- Permissions are split into **read** (screen, files, folders) and **change** (commands, keys, writing files). Each request appears on the terminal itself and in the panel with *Allow*, *Deny*, or *Allow all reads / changes* for that chat; two checkboxes show and toggle the current choice.
+- Permissions are split into **read** (screen, files, folders) and **change** (commands, keys, writing files). Each request appears on the terminal itself and in the panel with *Allow*, *Deny*, or *Allow all reads / changes* for that chat. (For working without questions, use **agent mode** below; the old *auto-allow* checkboxes were removed in 11.0.)
 - **Your screen is yours**: both Claude and Codex are instructed (as system/developer instructions) not to type into the terminal unless you ask. Asking "pwd" while opencode is open runs `pwd` in the background instead of typing into opencode. As a hard safety net, typing a shell command is refused whenever a program (opencode, vim, top…) is in the foreground instead of the shell prompt.
 - While the AI works, the terminal gets a purple frame and a status badge ("AI: running command — df -h"), so you always see what it is doing.
 
@@ -183,6 +190,7 @@ Created automatically on first start. You can edit it with any text editor while
   font_size = 14
   scrollback = 10000
   copy_on_select = true
+  skip_update_version = ""   # an update you chose to skip at start-up (set by the Skip button)
   sidebar_visible = true
   sidebar_width = 300
   sidebar_follow = true
@@ -241,7 +249,7 @@ git clone https://github.com/narayaitsolution/remote-access.git
 cd remote-access
 go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.1   # once; puts wails in %USERPROFILE%\go\bin
 .\build.ps1
-# → build\bin\RemoteTerminal-<version>.exe   (version from version.go)
+# → build\bin\RemoteTerminal.exe   (version from version.go is shown in the app)
 ```
 
 `build.ps1` installs the frontend packages, builds the UI and compiles one portable `.exe`. It never cleans `build\bin`, so a `config.toml` you keep there for testing is not deleted.
@@ -251,6 +259,7 @@ go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.1   # once; puts wails i
 | Run with hot reload while developing | `wails dev` |
 | Go tests (in-process fake SSH/SFTP server: login, SSH keys, reconnect into tmux, keepalive timeout, transfers, editor save/conflict, OpenAI-compatible provider, password encryption, Windows file icons) | `go test ./...` |
 | Live tests against the real AI CLIs (use your logged-in account and a little quota) | `$env:RT_AI_TEST="claude"; go test -run TestAI -v .` (or `codex`) |
+| Live test of the update check and download against GitHub Releases | `$env:RT_UPDATE_TEST="1"; go test -run "TestCheckUpdateLive|TestDownloadUpdateLive" -v .` |
 | Type-check the frontend | `cd frontend; npx tsc --noEmit` |
 | Regenerate the app icon from `assets/icon-source.png` | `go run ./tools/mkicon assets/icon-source.png` |
 
@@ -258,16 +267,16 @@ go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.1   # once; puts wails i
 
 **Releasing a new version** (major = new feature, minor = fixes/small changes/docs):
 1. Change `appVersion` in `version.go` and `productVersion` in `wails.json`.
-2. Add a row to [Version history](#version-history) .
-3. Commit, then tag and push: `git tag -a v8.5 -m "Remote Terminal 8.5"; git push; git push origin v8.5`.
-4. GitHub Actions builds `RemoteTerminal-8.5.exe` and publishes it on the [Releases](https://github.com/narayaitsolution/remote-access/releases) page, with the notes taken from the version-history row.
+2. Add a row to [Version history](#version-history) and a `## <version>` section to [`CHANGELOG.id.md`](CHANGELOG.id.md) (Indonesian; shown in the app's Information and update windows — a test fails if the running version has no section).
+3. Commit, then tag and push: `git tag -a v11.1 -m "Remote Terminal 11.1"; git push; git push origin v11.1`.
+4. GitHub Actions builds `RemoteTerminal.exe` and publishes it on the [Releases](https://github.com/narayaitsolution/remote-access/releases) page. The release notes contain the README row and the Indonesian section; installed apps find the release at their next start.
 
 **Privacy:** personal files are never part of the repository. `config.toml` (servers, encrypted passwords, API keys), `known_hosts`, SSH keys and built `.exe` files are listed in `.gitignore`. Passwords and API keys are only ever stored DPAPI-encrypted on the user's own PC.
 
 ## How it works
 
 - The remote shell is started through a tiny wrapper that reports the terminal's TTY and shell PID (hidden from the screen). With that, the app asks the server on a separate SSH channel which tmux session and directory belong to this terminal — used for the sidebar's "follow terminal" mode and to know where to return after a reconnect.
-- Mouse drags are handled by xterm.js as local selection (the app makes it act as if Shift were held), while wheel events still go to tmux.
+- Mouse: in a plain shell xterm.js selects natively. When the program has turned on mouse reporting, a left press is held back until it is clear whether it is a click (then it is replayed to the program as press + release) or a drag (then a local selection is started with xterm's force-selection modifier). Wheel events still go to tmux.
 
 ## Project layout
 
@@ -293,7 +302,9 @@ go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.1   # once; puts wails i
 | `ai_openai.go` | OpenAI-compatible providers (base URL + API key) |
 | `fileicon*.go`, `frontend/src/fileicons.ts` | File-type icons taken from Windows (Explorer icons) |
 | `version.go` | Application version |
-| `build.ps1` | Builds `build\bin\RemoteTerminal-<version>.exe` |
+| `build.ps1` | Builds `build\bin\RemoteTerminal.exe` |
+| `update.go`, `frontend/src/about.ts` | Update check/download (GitHub Releases) and the Information window |
+| `CHANGELOG.id.md` | Version history in Indonesian, embedded in the app and copied into the release notes |
 | `.github/workflows/build.yml` | CI: tests + build on every push; publishes the `.exe` to Releases for `v*` tags |
 | `assets/icon.svg`, `assets/icon-source.png`, `tools/mkicon` | App icon source; `go run ./tools/mkicon assets/icon-source.png` writes `build/appicon.png` and `build/windows/icon.ico` |
 
@@ -303,6 +314,7 @@ Versioning scheme: the **major** number goes up when a new feature is added; the
 
 | Version | Type | Changes |
 |---|---|---|
+| **11.0** | Feature | Drag-to-select and auto-copy now also work in a plain shell (not only in tmux); plain clicks reach programs that use the mouse (opencode tabs and close buttons, htop, tmux panes) while drags still select; upload/download progress per file; Information window (ⓘ) with version, features and Indonesian version history; background update check at start-up with *Update* (downloads `RemoteTerminal.exe` to Downloads with install steps that keep `config.toml`) or *Skip*; the executable is now always `RemoteTerminal.exe` (no version in the name); the *auto-allow read/change* checkboxes were removed from the AI Sidebar (agent mode replaces them); new `skip_update_version` setting |
 | **10.0** | Feature | **Agent mode** in the AI Sidebar: the AI does a task end to end on the screen (finds the file, opens it in an editor tab, edits it with highlighted changes, tests it, fixes errors up to 5 rounds, reports); hands large tasks to opencode/Claude Code/Codex shown on screen or opens a new terminal tab when the screen is busy; actions approved automatically except risky ones; new tools `open_file`, `edit_file`, `open_terminal`, `use_terminal`; new `ai_agent_mode` setting. AI Companion: Copilot-style grey inline code suggestions in the editor, turned on/off with the new *AI Companion* button in the top bar; to save tokens a suggestion is requested only with `Alt+\` (`Tab` accepts) and sends the code around the cursor plus an outline of the rest of the file (imports and nearby signatures, about 1,000–1,500 tokens); the *AI* button is renamed *AI Sidebar*; works with OpenAI-compatible APIs, Claude Code or Codex, with its own provider/model choice; status shown in the editor status bar; new `ai_companion`, `ai_companion_provider`, `ai_companion_model` settings |
 | **9.0** | Feature | Code editing like VS Code for Python, PHP, Java, Go, C/C++, C#, Ruby, Rust, Kotlin, shell, SQL and more: keyword/built-in autocomplete, Tab snippets, language picker in the status bar (`Ctrl+K M`), *Format* (`Shift+Alt+F`), command palette (`F1`), word wrap toggle (`Alt+Z`), sticky scroll and folding; minimap removed; new `editor_word_wrap` and `editor_tab_size` settings; README is English-only and points to `config.toml` for the full configuration |
 | **8.4** | Minor | Executables are published on GitHub Releases, built automatically by GitHub Actions for every version tag; tests run on every push; the repository builds right after cloning (Development section in README); test data no longer contains personal names |

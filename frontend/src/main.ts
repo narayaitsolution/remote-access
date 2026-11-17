@@ -2,6 +2,7 @@ import '@xterm/xterm/css/xterm.css';
 import './style.css';
 import { HostKeyAnswer } from '../wailsjs/go/main/App';
 import { EventsOn } from '../wailsjs/runtime/runtime';
+import { checkUpdateAtStartup } from './about';
 import { AIPanel } from './ai';
 import { setupHooks, showSetup } from './setup';
 import { Layout } from './layout';
@@ -25,6 +26,7 @@ async function boot() {
   document.getElementById('app')!.append(h('div', { class: 'root' }, sidebar.el, layout.el, ai.el));
   if (store.configError) toast(store.configError, 'error');
   if (!store.settings.setupDone) setTimeout(() => showSetup(true), 400);
+  checkUpdateAtStartup();
 
   EventsOn('hostkey', async (p: HostKeyPrompt) => {
     const body = h('div', { class: 'modal-text' });

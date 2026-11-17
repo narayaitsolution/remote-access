@@ -409,12 +409,22 @@ function b64ToBytes(b64: string): Uint8Array {
 }
 
 // ---------------------------------------------------------------------------
-// Mouse behaviour: dragging always selects locally (no Shift needed), even when
-// tmux has mouse mode on. We do this by making xterm.js believe Shift is held
-// for button events, which is its built-in "force selection" modifier.
-// The wheel is NOT touched, so it still scrolls tmux history directly.
+// Mouse behaviour.
+// - Plain shell (the program has not asked for the mouse): xterm.js selects
+//   natively; the selection is copied when the button is released.
+// - A program that uses the mouse (tmux with mouse on, opencode, htop, mc…):
+//   a plain CLICK goes to the program (tabs, buttons, panes), while a DRAG or a
+//   double/triple click selects text locally and copies it. For that the press
+//   is held back until we know which one it is; a drag then starts a selection
+//   with xterm's "force selection" modifier (Shift), a click is replayed to the
+//   program as a normal press + release.
+// The wheel is not touched, so it still scrolls (tmux history included).
 let dragging = false;
 let dragPane: Pane | null = null;
+let forced = false; // the current drag selects locally in a mouse-using program
+let pending: { pane: Pane; down: MouseEvent; target: EventTarget } | null = null;
+const synthetic = new WeakSet<Event>();
+
 function forceShift(e: MouseEvent) {
   if (!e.shiftKey) Object.defineProperty(e, 'shiftKey', { get: () => true });
 }
@@ -422,24 +432,83 @@ function inTerm(e: Event): Pane | null {
   const host = (e.target as Element | null)?.closest?.('.term-host');
   return host ? termByEl.get(host) ?? null : null;
 }
+const usesMouse = (p: Pane) => (p.term?.modes.mouseTrackingMode ?? 'none') !== 'none';
+
+/** Replays a mouse event to xterm.js (which does not check isTrusted). */
+function replay(target: EventTarget, type: 'mousedown' | 'mouseup', from: MouseEvent, shift: boolean) {
+  const ev = new MouseEvent(type, {
+    bubbles: true, cancelable: true, composed: true, view: window, detail: 1,
+    clientX: from.clientX, clientY: from.clientY, screenX: from.screenX, screenY: from.screenY,
+    button: 0, buttons: type === 'mousedown' ? 1 : 0,
+    shiftKey: shift, ctrlKey: from.ctrlKey, altKey: from.altKey, metaKey: from.metaKey,
+  });
+  synthetic.add(ev);
+  target.dispatchEvent(ev);
+}
+
+function endDrag() {
+  dragging = false;
+  forced = false;
+  const p = dragPane;
+  dragPane = null;
+  // Copy once the selection is final (after xterm handled this mouseup).
+  // Covers drags, double-click (word) and triple-click (line) selection.
+  if (p && store.settings.copyOnSelect) setTimeout(() => { if (p.term?.hasSelection()) p.copySelection(); }, 0);
+}
+
 window.addEventListener('mousedown', e => {
+  if (synthetic.has(e)) return;
   const p = inTerm(e);
   if (!p) return;
   if (e.button === 0 && e.detail === 1 && !e.shiftKey) p.term?.clearSelection();
-  dragging = true;
-  dragPane = p;
-  forceShift(e);
+  if (!usesMouse(p)) { // plain shell: native selection
+    if (e.button === 0) { dragging = true; dragPane = p; }
+    return;
+  }
+  if (e.button !== 0) { forceShift(e); return; } // right/middle click: paste, not sent to the program
+  if (e.shiftKey || e.detail >= 2) { // Shift+drag, double/triple click: select locally
+    dragging = true; dragPane = p; forced = true;
+    forceShift(e);
+    return;
+  }
+  // Left press in a mouse-using program: wait to see if it is a click or a drag.
+  e.stopImmediatePropagation();
+  e.preventDefault();
+  hooks.focusPane(p);
+  p.term?.focus();
+  pending = { pane: p, down: e, target: e.target! };
 }, true);
-for (const type of ['mousemove', 'mouseup', 'click', 'dblclick'] as const) {
-  window.addEventListener(type, e => {
-    if (dragging || inTerm(e)) forceShift(e as MouseEvent);
-    if (type === 'mouseup' && dragging) {
-      dragging = false;
-      const p = dragPane;
-      dragPane = null;
-      // Copy once the selection is final (after xterm handled this mouseup).
-      // Covers drags, double-click (word) and triple-click (line) selection.
-      if (p && store.settings.copyOnSelect) setTimeout(() => { if (p.term?.hasSelection()) p.copySelection(); }, 0);
-    }
-  }, true);
+
+window.addEventListener('mousemove', e => {
+  if (synthetic.has(e)) return;
+  if (pending) {
+    const d = pending.down;
+    if (Math.abs(e.clientX - d.clientX) + Math.abs(e.clientY - d.clientY) < 4) { e.stopImmediatePropagation(); return; }
+    // It is a drag: start a local selection where the button went down.
+    const { pane, target } = pending;
+    pending = null;
+    dragging = true; dragPane = pane; forced = true;
+    replay(target, 'mousedown', d, true);
+  }
+  if (dragging && forced) forceShift(e);
+}, true);
+
+window.addEventListener('mouseup', e => {
+  if (synthetic.has(e)) return;
+  if (pending) {
+    // A click: give it to the program (e.g. a tab or button in opencode).
+    const { target, down } = pending;
+    pending = null;
+    e.stopImmediatePropagation();
+    replay(target, 'mousedown', down, false);
+    replay(target, 'mouseup', e, false);
+    return;
+  }
+  if (!dragging) return;
+  if (forced) forceShift(e);
+  endDrag();
+}, true);
+
+for (const type of ['click', 'dblclick'] as const) {
+  window.addEventListener(type, e => { if (forced || (inTerm(e) && dragging)) forceShift(e as MouseEvent); }, true);
 }

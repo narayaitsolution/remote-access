@@ -14,7 +14,11 @@ import {
 } from './ui';
 
 interface Entry { name: string; size: number; mode: string; modTime: number; isDir: boolean; isLink: boolean }
-interface Xfer { id: string; kind: string; name: string; total: number; done: number; state: string; error: string; dir: string; sessId: string }
+interface Xfer {
+  id: string; kind: string; name: string; total: number; done: number; state: string; error: string; dir: string; sessId: string;
+  /** File n of count in a batch (files picked or dropped together). */
+  index: number; count: number; batch: string;
+}
 
 const join = (dir: string, name: string) => (dir === '/' ? '' : dir.replace(/\/+$/, '')) + '/' + name;
 const parent = (p: string) => p.replace(/\/+$/, '').replace(/\/[^/]*$/, '') || '/';
@@ -477,7 +481,9 @@ export class Sidebar {
     const icon = t.kind === 'upload' ? icons.upload : icons.download;
     const status = t.state === 'running' ? `${fmtSize(t.done)} / ${fmtSize(t.total)}` :
       t.state === 'done' ? 'Selesai' : t.state === 'cancelled' ? 'Dibatalkan' : 'Gagal: ' + t.error;
-    const close = h('button', { class: 'icon-btn small', html: icons.x, title: t.state === 'running' ? 'Batalkan' : 'Tutup' });
+    const multi = t.count > 1;
+    const close = h('button', { class: 'icon-btn small', html: icons.x,
+      title: t.state === 'running' ? (multi ? 'Batalkan (file berikutnya juga dibatalkan)' : 'Batalkan') : 'Tutup' });
     close.onclick = () => {
       if (t.state === 'running') CancelTransfer(t.id);
       else { item!.el.remove(); this.xfers.delete(t.id); }
@@ -485,7 +491,8 @@ export class Sidebar {
     item.el.className = 'xfer ' + t.state;
     item.el.replaceChildren(
       h('div', { class: 'xfer-head' }, h('span', { class: 'xfer-icon', html: icon }),
-        h('span', { class: 'xfer-name', title: t.name }, t.name), close),
+        h('span', { class: 'xfer-name', title: t.name }, t.name),
+        multi ? h('span', { class: 'xfer-count', title: `File ke-${t.index} dari ${t.count}` }, `${t.index}/${t.count}`) : null, close),
       h('div', { class: 'xfer-bar' }, h('div', { class: 'xfer-fill', style: `width:${pct}%` })),
       h('div', { class: 'xfer-status', title: status }, status));
     if (t.kind === 'download' && t.state === 'done') {
@@ -494,12 +501,13 @@ export class Sidebar {
       item.el.onclick = ev => { if (ev.target !== close) OpenLocalFolder(t.dir); };
     }
     const label = t.kind === 'upload' ? 'Upload' : 'Download';
-    if (t.state === 'done') toast(`${label} berhasil: ${t.name}`, 'success');
+    // One toast per batch, not per file.
+    if (t.state === 'done' && t.index === t.count) toast(multi ? `${label} berhasil: ${t.count} file` : `${label} berhasil: ${t.name}`, 'success');
     else if (t.state === 'error') toast(`${label} gagal: ${t.name} — ${t.error}`, 'error');
-    else if (t.state === 'cancelled') toast(`${label} dibatalkan: ${t.name}`);
+    else if (t.state === 'cancelled') toast(multi ? `${label} dibatalkan di file ${t.index} dari ${t.count} (${t.name})` : `${label} dibatalkan: ${t.name}`);
     if (t.state === 'done' || t.state === 'cancelled') {
-      setTimeout(() => { item!.el.remove(); this.xfers.delete(t.id); }, 5000);
-      if (t.kind === 'upload' && this.pane?.sessionId === t.sessId) this.refresh();
+      setTimeout(() => { item!.el.remove(); this.xfers.delete(t.id); }, multi ? 2500 : 5000);
+      if (t.kind === 'upload' && this.pane?.sessionId === t.sessId && (t.index === t.count || t.state === 'cancelled')) this.refresh();
     }
   }
 }
