@@ -2,7 +2,7 @@
 
 **Current version: 11.0** — click ⓘ in the app to see the version, all features and the version history. — see [Version history](#version-history).
 
-A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a focused alternative to MobaXterm for people who mostly live in `ssh` + `tmux`.
+A lightweight, portable SSH terminal with an SFTP file sidebar and built in AI sidebar for Windows Users. Buid for people who mostly live in `ssh` + `tmux`.
 
 ## Download
 
@@ -14,7 +14,7 @@ A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a
 - No installer. Copy `RemoteTerminal.exe` anywhere and run it.
 - All settings are stored in a plain-text `config.toml` next to the `.exe` (falls back to `%APPDATA%\RemoteTerminal` if that folder is not writable).
 - Requires only WebView2, which is preinstalled on current Windows 10/11.
-- The file is always named `RemoteTerminal.exe` (no version in the name), so updating is just replacing that one file. The version is shown in the **Information** window (ⓘ in the top bar) and in the window title.
+- The version is shown in the **Information** window (ⓘ in the top bar) and in the window title.
 
 ### Information window and updates
 - **ⓘ in the top bar** opens a window in the middle of the screen with the app version, every feature (with the version that introduced it) and the full version history in Indonesian, plus a **Check for update** button.
@@ -22,7 +22,7 @@ A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a
 - **Update** downloads the new `RemoteTerminal.exe` into your **Downloads** folder (with a progress bar) and then explains how to install it: close the app, move the new file into the app's folder replacing the old one, and **do not delete `config.toml` and `known_hosts`** — they hold your saved servers, encrypted passwords and settings. Buttons open the Downloads folder and the app folder. The running app is never replaced automatically.
 
 ### Server picker
-- Every new tab or split opens a server list, like MobaXterm's start page.
+- Every new tab or split opens a server list.
 - Search as you type, `↑/↓` + `Enter` to connect, double-click to connect.
 - Add, edit, duplicate, delete and reorder servers.
 - Optional per-server tmux session: connect straight into (or create) a named tmux session.
@@ -82,7 +82,7 @@ A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a
 - **Your screen is yours**: both Claude and Codex are instructed (as system/developer instructions) not to type into the terminal unless you ask. Asking "pwd" while opencode is open runs `pwd` in the background instead of typing into opencode. As a hard safety net, typing a shell command is refused whenever a program (opencode, vim, top…) is in the foreground instead of the shell prompt.
 - While the AI works, the terminal gets a purple frame and a status badge ("AI: running command — df -h"), so you always see what it is doing.
 
-#### Agent mode: the AI does the job on your screen while you watch
+#### Agent mode: the AI does the job on your screen while you supervising the works
 Tick **Mode Agen** at the bottom of the AI Sidebar (remembered in `config.toml`). Questions are still answered as a chat, but a task such as *"change the login function in app.php so it logs the user's IP"* is now done by the AI from start to finish, visibly:
 1. It **reads the main screen**. At a shell prompt it works right there: you see every command it types (finding the file with `find`/`grep`, inspecting, testing).
 2. If the screen is **busy with a program**:
@@ -112,7 +112,7 @@ In agent mode, actions are **approved automatically, except risky ones**, which 
 - If the file was changed on the server since you opened it (by someone else, a script or an AI tool), saving warns you before overwriting.
 - Text files up to 5 MB; binary files are refused (use Download).
 
-### AI Companion: inline code suggestions (like Copilot)
+### AI Companion: inline code suggestions (like Copilot in VSCode)
 - **Off by default.** Click **AI Companion** in the top bar (next to **AI Sidebar**) to turn it on or off; the button turns purple while it is on. The choice is remembered.
 - **Only on request, to save tokens:** nothing is sent while you type. Press **`Alt+\`** in the editor and a **grey suggestion** appears at the cursor: the rest of the line, or the next few lines. **`Tab`** accepts it, **`Ctrl+→`** accepts one word, **`Esc`** dismisses it. Typing the suggested characters keeps it visible without a new request; moving the cursor or typing something else drops it.
 - **Small but complete context.** Each request sends:
