@@ -1,343 +1,277 @@
 # Remote Terminal
 
-**Current version: 11.0** — click ⓘ in the app to see the version, all features and the version history. — see [Version history](#version-history).
+[![Latest release](https://img.shields.io/github/v/release/narayaitsolution/remote-access)](https://github.com/narayaitsolution/remote-access/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A lightweight, portable SSH terminal with an SFTP file sidebar and built in AI sidebar for Windows Users. Buid for people who mostly live in `ssh` + `tmux`.
+A portable SSH terminal for Windows with an SFTP sidebar, a VS Code-like editor and a built-in AI assistant. It has reliable copy-paste and connects straight into `tmux` sessions.
 
-## Download
+**[⬇ Download `RemoteTerminal.exe`](https://github.com/narayaitsolution/remote-access/releases/latest)**: a single file with no installer (Windows 10/11, requires WebView2, which is preinstalled).
 
-**[⬇ Download the latest `RemoteTerminal.exe` from Releases](https://github.com/narayaitsolution/remote-access/releases/latest)** — one portable file, no installation (Windows 10/11).
+## Highlights
+
+- **Portable**: one `.exe`. Settings live in `config.toml` next to it, or in `%APPDATA%\RemoteTerminal` if that folder is not writable.
+- **Survives bad networks**: keepalives, auto-reconnect and re-attach to the exact tmux session you were in.
+- **Copy that just works**: select to copy and right-click to paste. Copied text is cleaned up, wrapped lines are rejoined, and line endings become CRLF.
+- **SFTP sidebar** that follows the terminal's current directory, even inside tmux.
+- **Monaco editor** (from VS Code) plus PDF, Markdown, image and Office file support.
+- **AI assistant** using your installed Claude Code / Codex CLI or any OpenAI-compatible API. Every server access needs your permission.
 
 ## Features
 
-### Single portable `.exe`
-- No installer. Copy `RemoteTerminal.exe` anywhere and run it.
-- All settings are stored in a plain-text `config.toml` next to the `.exe` (falls back to `%APPDATA%\RemoteTerminal` if that folder is not writable).
-- Requires only WebView2, which is preinstalled on current Windows 10/11.
-- The version is shown in the **Information** window (ⓘ in the top bar) and in the window title.
+### Terminal & connections
+- Built on xterm.js with GPU rendering, true color and full tmux support.
+- Tabs and nested vertical/horizontal splits. `Alt+Arrow` moves focus between panes, and a status dot shows each session's state.
+- **Select = copy** to the Windows clipboard, in a plain shell, in tmux and in full-screen programs.
+- **Right-click = paste**. Middle-click, `Shift+Insert` and `Ctrl+Shift+V` also paste.
+- The mouse wheel scrolls tmux history directly.
+- Clicks reach mouse-aware programs such as opencode, htop and mc, while a drag still selects text.
+- Server picker with search and keyboard navigation. You can add, edit, duplicate and reorder servers, and set an optional tmux session per server.
+- **Login with a password or an SSH key** (OpenSSH/PEM, including encrypted keys).
+  - Common errors get clear messages, for example choosing a `.pub` file, a PuTTY `.ppk` key, or a key missing from `authorized_keys`.
+- Saved passwords and passphrases are encrypted with **Windows DPAPI**.
+- Host keys are checked against `known_hosts`.
+- **Auto-reconnect** uses keepalives (every 15 s by default) and retries with backoff. Keystrokes typed while disconnected are discarded, and typing `exit` ends the session normally.
 
-### Information window and updates
-- **ⓘ in the top bar** opens a window in the middle of the screen with the app version, every feature (with the version that introduced it) and the full version history in Indonesian, plus a **Check for update** button.
-- **At start-up the app checks GitHub Releases for a newer version in the background.** If there is none, or there is no internet / GitHub cannot be reached, nothing is shown. If there is one, a window lists what is new and offers **Update** or **Skip** (*Skip* = don't offer this version again at start-up; it can still be installed from the Information window).
-- **Update** downloads the new `RemoteTerminal.exe` into your **Downloads** folder (with a progress bar) and then explains how to install it: close the app, move the new file into the app's folder replacing the old one, and **do not delete `config.toml` and `known_hosts`** — they hold your saved servers, encrypted passwords and settings. Buttons open the Downloads folder and the app folder. The running app is never replaced automatically.
+### SFTP sidebar (`Ctrl+Shift+B`)
+- Follows `cd` in the focused pane, with no `.bashrc` changes. Browsing manually pauses following.
+- Upload and download files and folders with a per-file progress bar and cancel. Drag & drop from Windows Explorer to upload.
+- Right-click menu: open, download, rename, delete, chmod, copy path, open in terminal. Multi-select works with `Ctrl`/`Shift`+click.
 
-### Server picker
-- Every new tab or split opens a server list.
-- Search as you type, `↑/↓` + `Enter` to connect, double-click to connect.
-- Add, edit, duplicate, delete and reorder servers.
-- Optional per-server tmux session: connect straight into (or create) a named tmux session.
+### Editor & viewers
+- Double-click a file to open it in the **Monaco editor**. It offers:
+  - syntax highlighting for 70+ languages
+  - autocomplete and Tab snippets
+  - IntelliSense for JS/TS/JSON/HTML/CSS
+  - format document, command palette, find/replace and multi-cursor
+- `Ctrl+S` saves back to the server. You are warned if the file changed on the server since you opened it, and asked before closing with unsaved changes. Text files up to 5 MB are supported.
+- `.pdf`, `.md` and image files open in built-in viewers. Markdown HTML is sanitized.
+- Office files (`.docx`, `.xlsx`, `.pptx`, …) open in Word, Excel, PowerPoint or LibreOffice and are **uploaded automatically on every save**.
 
-### Login: password or SSH key
-- Each server uses either a **password** or an **SSH private key** (OpenSSH/PEM format such as `id_ed25519` or `id_rsa`; a browse button opens in `~/.ssh`).
-- Encrypted keys are supported: the passphrase is asked only when the key needs one, and can be saved like a password.
-- Clear messages for common mistakes: wrong passphrase, key not in the server's `authorized_keys`, choosing the `.pub` file, or a PuTTY `.ppk` file (export it to OpenSSH with PuTTYgen first).
+### AI
+- **AI Sidebar** (`Ctrl+Shift+A`) works with:
+  - **Claude Code** and **Codex** CLIs: no extra login or API key
+  - any **OpenAI-compatible API**: OpenAI, OpenRouter, Groq, DeepSeek, Ollama, LM Studio, …; keys are stored encrypted
+- It is a normal chat by default. When a request needs the server, the AI can:
+  - read the screen
+  - run commands in the background
+  - type keys into a program (e.g. opencode in tmux)
+  - watch the screen for output
+  - read and write files over SFTP
+- **Each access asks permission**, split into *read* and *change*.
+- The AI never types into your terminal unless you ask. A purple frame and a status badge show what it is doing.
+- **Agent mode** lets the AI carry out a task visibly from start to finish: it finds the file, edits it in an editor tab, tests the result, fixes errors up to 5 rounds and reports what changed. Actions are approved automatically, **except risky ones**, which always ask.
+- **AI Companion**: Copilot-style inline suggestions, requested **only** with `Alt+\` to save tokens. `Tab` accepts a suggestion. Each request is about 1–1.5k tokens.
+- Usage is shown in the panel: Claude's 5-hour and 7-day limits, plus tokens and estimated cost per chat.
 
-### Passwords
-- Saving the password (or key passphrase) is optional, per server.
-- Saved passwords are encrypted with **Windows DPAPI**: only your Windows account on your PC can decrypt them. Copying `config.toml` to another machine does not reveal them.
-- If not saved, you are asked for the password on every connect (and it is kept in memory only for automatic reconnects).
+<details>
+<summary><b>Agent mode in detail</b></summary>
 
-### Stable on unreliable networks
-- SSH keepalives (default every 15 s) detect a dead or frozen connection instead of hanging forever.
-- When the connection drops, the screen stays as it was, a small "Reconnecting…" badge appears, and the app retries with backoff.
-- After reconnecting it **re-attaches the exact tmux session you were in**, so you continue where you left off. If tmux or that session no longer exists, you simply get a normal login shell.
-- Keystrokes typed while disconnected are discarded rather than sent to the wrong place.
-- Typing `exit` ends the session normally; it is not treated as a network drop. Press `Enter` to connect again.
+1. **Reads the main screen.** At a shell prompt it works right there, and you see every command it types.
+2. **If a coding agent is on screen** (opencode, Claude Code, Codex), it may hand a large task to that agent, follow its progress, then check the result.
+3. **If any other program is on screen** (vim, htop, logs…), it opens a **new terminal tab** on the same server and folder instead of touching yours.
+4. **Edits the file in an editor tab** with small, exact edits. Changes are highlighted, saved, and can be undone with `Ctrl+Z`.
+5. **Tests the result** with a syntax or compile check that fits the file (`php -l`, `python3 -m py_compile`, `node --check`, `bash -n`, `go build`, `tsc`, `nginx -t`, …) and runs project tests if there are any.
+6. **Fixes and retests** up to 5 rounds, then reports the files, lines, tests and result.
 
-### Terminal that behaves like you expect
-- Based on xterm.js (the terminal used by VS Code) with GPU rendering, 256/true color and full tmux support.
-- **Mouse wheel scrolls tmux history directly** — no Shift needed. (The app enables `mouse on` in your running tmux server; disable with `tmux_mouse = false`.)
-- **Select = copy**: dragging selects text locally — in a plain shell as well as inside tmux or a full-screen program — and copies it to the Windows (host) clipboard — never to tmux on the server — with a "Copy berhasil" notification. Copied text is cleaned up: padding blanks are removed, text that a program wrapped to the screen width (padding the rest of the row with spaces) is joined back into flowing sentences, real line breaks are kept as Windows-style CRLF, so it pastes cleanly into Notepad or Word.
-- **Clicks reach the program on screen**: when a program uses the mouse (opencode, htop, mc, tmux with mouse mode…), a plain click goes to it, so you can click its tabs, close buttons, menus and panes. A drag, a double-click (word) or a triple-click (line) still selects and copies locally. In a plain shell, xterm's normal selection is used.
-- **Right-click = paste** (also middle-click, `Shift+Insert`, `Ctrl+Shift+V`).
-- `Ctrl+Wheel` changes the font size; `Ctrl+0` resets it.
+**Always-ask (risky) actions:** each of these shows a red prompt with no "allow all" option:
+- deleting files
+- wiping or formatting disks
+- shutting down or rebooting
+- stopping services or killing processes
+- firewall changes
+- `DROP` / `TRUNCATE` / `DELETE FROM`
+- `git reset --hard` and force-push
+- Docker/Kubernetes deletions
+- recursive permission changes on system folders
+- user or cron changes
+- removing packages
 
-### Tabs and splits
-- Multiple sessions in tabs, each tab can be split **vertically** or **horizontally**, nested as deep as you like.
-- Drag the divider to resize; `Alt+Arrow` moves focus between panes.
-- Each tab shows a status dot: green = connected, yellow = connecting/reconnecting, red = ended.
+*Stop* ends the work at any time. Files with unsaved changes are left alone.
+</details>
 
-### SFTP file sidebar
-- Show/hide with `Ctrl+Shift+B`; drag its edge to resize.
-- **Follows the terminal's current directory** by default — `cd` in the terminal and the sidebar goes there too (works inside tmux, no `.bashrc` changes needed). Browsing yourself pauses following; the "follow terminal" button turns it back on. With splits, the sidebar follows the focused pane.
-- Compact one-row icon toolbar: **Up, Upload, Download, New file, New folder, Rename, Delete, Refresh, Follow terminal**.
-- Editable path bar.
-- **Right-click menu** on files/folders: Open, Download, Rename, Delete, Copy path, Change permissions (chmod), Open in terminal (`cd` there), Upload into this folder. Right-click on empty space: Upload, New file, New folder, Copy path, Open in terminal, Refresh.
-- Multi-select with `Ctrl`/`Shift`+click; download or delete many items at once.
-- Upload and download files and whole folders with **a progress bar for each file** ("3/12" shows which file of the batch it is) and a cancel button (cancelling stops the rest of that batch too); one notification per batch. Click a finished download to open its folder in Explorer.
-- **Drag & drop from Windows Explorer** onto the sidebar to upload (drop onto a folder row to upload into that folder).
-- Keyboard: `Enter` open, `Backspace` up, `F2` rename, `Del` delete, `F5` refresh, `Ctrl+A` select all.
+## Optional programs
 
-### AI assistant that works in your terminal
-- Open the AI panel with `Ctrl+Shift+A` (or the **AI Sidebar** button). It uses the AI CLIs already installed and logged in on your PC — **Claude Code** (`claude`) and **Codex** (`codex`) — so there is no extra login or API key.
-- Choose the provider and **model** per provider (Claude: opus / sonnet / haiku or a full model id; Codex: the models from your Codex installation). "Model lain…" accepts any model name.
-- **It is a normal chat by default** — ask anything, even without a server connection. Only when a request needs the server does the AI use the tools the app provides, and **every server access asks your permission first**:
-  - read the screen (including tmux history) and see which program is in the foreground,
-  - run commands **in the background** (a separate hidden SSH channel in the terminal's current directory) — the default, so your screen is left alone,
-  - run commands **typed into your visible terminal** when you ask for that, so you can watch them run,
-  - type text and keys into whatever is running — e.g. **give instructions to opencode running in tmux**, answer prompts, navigate TUIs, `Ctrl+C` (supports Enter, Tab, Shift+Tab, Esc, arrows, F1–F12, Ctrl+key, Alt+key) — **only when you explicitly ask it to**,
-  - watch the screen until some text appears or it stops changing (e.g. wait for opencode's answer),
-  - list, read and write files over SFTP.
-- Permissions are split into **read** (screen, files, folders) and **change** (commands, keys, writing files). Each request appears on the terminal itself and in the panel with *Allow*, *Deny*, or *Allow all reads / changes* for that chat. (For working without questions, use **agent mode** below; the old *auto-allow* checkboxes were removed in 11.0.)
-- **Your screen is yours**: both Claude and Codex are instructed (as system/developer instructions) not to type into the terminal unless you ask. Asking "pwd" while opencode is open runs `pwd` in the background instead of typing into opencode. As a hard safety net, typing a shell command is refused whenever a program (opencode, vim, top…) is in the foreground instead of the shell prompt.
-- While the AI works, the terminal gets a purple frame and a status badge ("AI: running command — df -h"), so you always see what it is doing.
+Everything else is built in. On first start, the app offers to install the missing optional programs via **winget**. You can open this check again any time with the 🔧 button.
 
-#### Agent mode: the AI does the job on your screen while you supervising the works
-Tick **Mode Agen** at the bottom of the AI Sidebar (remembered in `config.toml`). Questions are still answered as a chat, but a task such as *"change the login function in app.php so it logs the user's IP"* is now done by the AI from start to finish, visibly:
-1. It **reads the main screen**. At a shell prompt it works right there: you see every command it types (finding the file with `find`/`grep`, inspecting, testing).
-2. If the screen is **busy with a program**:
-   - **opencode, Claude Code, Codex** or a similar coding agent: for a large task (many files, a refactor, a new feature) the AI may hand the task to it, follow its progress, answer its prompts, and then check the result itself.
-   - anything else (vim, htop, a running server or log), or a small task: it leaves that program alone and **opens a new terminal in a new tab** (same server and folder, no new login, not the tmux session), so nothing on your original screen is closed. The AI can switch between its terminals (T1 = yours, T2, T3… = opened by the AI).
-3. It **opens the file in an editor tab** and makes **small, exact edits** there. Changed lines are highlighted in purple, the tab is saved, and `Ctrl+Z` undoes the change.
-4. It **tests the result**: a syntax/compile check that fits the file (`php -l`, `python3 -m py_compile`, `node --check`, `bash -n`, `go build`, `tsc`, `nginx -t`, …) and the project's tests when there are any.
-5. On errors it **fixes them and tests again**, up to 5 rounds. If it still fails, it stops and reports exactly what fails.
-6. It **reports** what was changed (files, lines), how it was tested and the result.
-
-In agent mode, actions are **approved automatically, except risky ones**, which always ask, in red, with no "allow all": deleting files (`rm`, `find -delete`), wiping/formatting disks, shutting down or rebooting, stopping/restarting services, killing processes, firewall changes, `DROP`/`TRUNCATE`/`DELETE FROM`, `git reset --hard`/force-push, Docker/Kubernetes deletions, recursive permission changes on system folders, user/cron changes and removing packages. *Stop* ends the work at any time. If you have unsaved changes in a file, the AI does not touch that file until you save or discard them.
-- **Any OpenAI-compatible service** can be added as a provider (⚙ in the AI panel, or `[[ai_provider]]` in `config.toml`): base URL + API key (stored encrypted), e.g. OpenAI, OpenRouter, Groq, DeepSeek, Mistral, Together, or a local Ollama / LM Studio. Its models are read from `/models` (or listed manually) and appear in the model picker; *Test connection* checks URL and key. The app runs the tool loop itself (function calling), with the same permissions and on-screen visibility.
-- **Usage** is shown in the panel: for Claude, your subscription's 5-hour and 7-day limit utilisation (with reset time) plus tokens and estimated cost of the chat; for Codex, the tokens used by the chat.
-- Each terminal pane has its own chat; *New chat* starts over. The AI CLIs run in an empty temporary folder with their own local tools disabled, so they can only act on the remote server through the app's tools (Codex additionally runs with a read-only sandbox).
-
-### Built-in code editor (like VS Code)
-- **Double-click a file in the sidebar** (or right-click → *Open in editor*) to open it in a new tab in the main area. The editor is **Monaco**, the editor component of VS Code, so source code on the server can be edited directly: Python, PHP, Java, Go, C/C++, C#, JavaScript/TypeScript, Ruby, Rust, Kotlin, Swift, Lua, Perl, shell, PowerShell, SQL, HTML/CSS, YAML, JSON, XML, Dockerfile, nginx/ini configs and 70+ more languages.
-- **Syntax highlighting** chosen from the file name; click the language in the status bar (or `Ctrl+K M`) to pick another one.
-- **Autocomplete** (`Ctrl+Space`, or as you type): language keywords, common built-ins and words already in the file. **Snippets** like VS Code: type `def`, `class`, `for`, `if`, `try`, `main`, `foreach`, `iferr`, `sout`, … and press `Tab`; `Tab` then jumps between the placeholders.
-- **Full IntelliSense** (errors, hover help, go to definition) for JavaScript, TypeScript, JSON, HTML and CSS.
-- **Format document** (`Shift+Alt+F` or the *Format* button) for JSON, HTML, CSS, JavaScript and TypeScript.
-- **Command palette** (`F1` or the *Perintah* button) with every editor command, as in VS Code.
-- The usual VS Code editing: find/replace (`Ctrl+F` / `Ctrl+H`), multi-cursor (`Alt+Click`, `Ctrl+D`, `Ctrl+Alt+↑/↓`), move/copy lines (`Alt+↑/↓`, `Shift+Alt+↑/↓`), comment (`Ctrl+/`), code folding, sticky scroll, indent guides, bracket pair colours, auto-closing brackets and quotes, go to line (`Ctrl+G`).
-- **Word wrap** on/off with `Alt+Z` or the *Wrap* button (remembered in `config.toml`). No minimap, so the code gets the full width.
-- **`Ctrl+S` saves** back to the server. The tab shows `●` while there are unsaved changes; a status bar shows line/column, indentation, line endings (LF/CRLF are preserved) and language.
-- **Closing a tab with unsaved changes asks**: *Save*, *Don't save* or *Cancel*. Closing the whole app with unsaved files asks too.
-- If the file was changed on the server since you opened it (by someone else, a script or an AI tool), saving warns you before overwriting.
-- Text files up to 5 MB; binary files are refused (use Download).
-
-### AI Companion: inline code suggestions (like Copilot in VSCode)
-- **Off by default.** Click **AI Companion** in the top bar (next to **AI Sidebar**) to turn it on or off; the button turns purple while it is on. The choice is remembered.
-- **Only on request, to save tokens:** nothing is sent while you type. Press **`Alt+\`** in the editor and a **grey suggestion** appears at the cursor: the rest of the line, or the next few lines. **`Tab`** accepts it, **`Ctrl+→`** accepts one word, **`Esc`** dismisses it. Typing the suggested characters keeps it visible without a new request; moving the cursor or typing something else drops it.
-- **Small but complete context.** Each request sends:
-  - the code around the cursor in full (about 3,000 characters before and 1,000 after, cut at whole lines);
-  - an **outline** of the rest of the file: its imports/includes and the signatures of the nearest functions, classes and methods (bodies left out);
-  - trailing spaces and runs of blank lines removed.
-
-  A typical request is about 1,000–1,500 tokens however large the file is, and the model still knows what is imported and defined elsewhere.
-- Uses an AI you have already connected; the provider and model are chosen separately from the AI Sidebar (right-click **AI Companion**, or click *AI Companion* in the editor status bar):
-  - **OpenAI-compatible API** (OpenRouter, Groq, DeepSeek, OpenAI, a local Ollama / LM Studio, …): the fastest, usually under a second with a small model. Chosen first by default.
-  - **Claude Code** (default model `haiku`) or **Codex**: work without an API key, but each suggestion takes a few seconds and uses your subscription quota.
-- The editor status bar shows *AI Companion: Alt+\ / berpikir… / galat / mati* (hover for the error message).
-- **Privacy:** only when you press `Alt+\`, the code around the cursor, the file outline and the file name are sent to the chosen provider.
-
-### Viewing PDF, Markdown, images and Office files
-Double-click a file in the sidebar and it opens in the main area according to its type:
-
-| File | Opens as |
-|---|---|
-| `.pdf` | **PDF viewer** (pdf.js): all pages, zoom in/out, fit to width |
-| `.md`, `.markdown` | **Markdown preview** (tables, code blocks, lists); *Edit* switches to the code editor, `Ctrl+S` saves. HTML in the file is sanitized, so scripts never run |
-| `.png`, `.jpg`, `.gif`, `.webp`, `.svg`, `.bmp`, `.ico` | **Image viewer** (click to toggle actual size) |
-| `.docx`, `.xlsx`, `.pptx` (and `.doc`, `.xls`, `.ppt`, `.odt`, `.ods`, `.odp`, `.rtf`) | **Edited in the Windows application** (Word, Excel, PowerPoint or LibreOffice). Every time you save there, the file is uploaded back to the server automatically; the sidebar shows its status and a *Done* button |
-| everything else (`.txt`, code, configs, logs…) | **Code editor** |
-
-Right-click → *Open with Windows application* works for any file type that has a program on your PC.
-
-### Supporting programs (first-run check)
-Everything marked *built-in* below is inside the `.exe`. On first start the app checks the optional programs and offers to install the missing ones with **winget** in one click; the dialog is available any time from the 🔧 button in the top bar. A feature whose program is missing stays disabled and offers *Install…* when you try to use it.
-
-| Program | Needed for | Installed with |
+| Program | Needed for | Install |
 |---|---|---|
-| — (built-in) | Terminal, SFTP, code editor, PDF/Markdown/image viewers, AI via OpenAI-compatible URL | nothing to install |
-| Microsoft Edge WebView2 | the app window | preinstalled on Windows 10/11 |
-| Claude Code CLI | AI assistant: Claude | `winget install Anthropic.ClaudeCode` (+ one-time *Login*) |
-| Codex CLI | AI assistant: Codex | `winget install OpenAI.Codex` (+ one-time *Login*) |
-| Microsoft Office or LibreOffice | editing Word / Excel / PowerPoint files | `winget install TheDocumentFoundation.LibreOffice` |
+| Claude Code CLI | AI: Claude | `winget install Anthropic.ClaudeCode` |
+| Codex CLI | AI: Codex | `winget install OpenAI.Codex` |
+| Microsoft Office or LibreOffice | Editing Office files | `winget install TheDocumentFoundation.LibreOffice` |
 
-### Notifications
-- A small notification in the top-right corner confirms every copy and reports success or failure of every file action (upload, download, new file/folder, rename, delete, chmod, refresh, up).
+## Updates
 
-### Security
-- Host keys are checked against a `known_hosts` file next to the `.exe`. You confirm the fingerprint on first connect, and get a clear warning if a server's key changes.
+At start-up the app checks GitHub Releases in the background and does nothing if there is no update or no internet.
 
-## Keyboard shortcuts
+**Update** downloads the new `RemoteTerminal.exe` to your Downloads folder. To install it:
+1. Close the app.
+2. Replace the old `.exe` with the new one.
+3. **Keep `config.toml` and `known_hosts`**. They hold your saved servers, encrypted passwords and settings.
+
+<details>
+<summary><b>Keyboard shortcuts</b></summary>
 
 | Shortcut | Action |
 |---|---|
-| `Ctrl+Shift+T` | New tab (opens server picker) |
-| `Ctrl+Shift+E` | Split vertically (left \| right) |
-| `Ctrl+Shift+O` | Split horizontally (top / bottom) |
-| `Ctrl+Shift+W` | Close current pane / tab |
+| `Ctrl+Shift+T` | New tab (server picker) |
+| `Ctrl+Shift+E` / `Ctrl+Shift+O` | Split vertically / horizontally |
+| `Ctrl+Shift+W` | Close pane / tab |
 | `Alt+←/→/↑/↓` | Move focus between panes |
-| `Ctrl+Tab`, `Ctrl+Shift+Tab` | Next / previous tab |
-| `Ctrl+1` … `Ctrl+9` | Jump to tab N |
-| `Ctrl+Shift+B` | Show / hide sidebar |
-| `Ctrl+Shift+C`, `Ctrl+Shift+V` | Copy / paste |
+| `Ctrl+Tab`, `Ctrl+Shift+Tab`, `Ctrl+1…9` | Switch tabs |
+| `Ctrl+Shift+B` | Toggle SFTP sidebar |
+| `Ctrl+Shift+A` | Toggle AI Sidebar |
+| `Ctrl+Shift+C` / `Ctrl+Shift+V` | Copy / paste |
 | `Ctrl+Wheel`, `Ctrl+0` | Zoom font / reset |
 | `F11` | Full screen |
-| `Ctrl+Shift+A` | Show / hide the AI assistant |
 
-In the code editor: `Ctrl+S` save, `F1` command palette, `Ctrl+Space` suggestions, `Shift+Alt+F` format, `Alt+Z` word wrap, `Ctrl+K M` change language, `Ctrl+F` / `Ctrl+H` find / replace, `Ctrl+/` comment, `Ctrl+G` go to line. With AI Companion on: `Tab` accept suggestion, `Ctrl+→` accept one word, `Esc` dismiss, `Alt+\` request a suggestion.
+**Editor shortcuts:**
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+S` | Save |
+| `F1` | Command palette |
+| `Ctrl+Space` | Suggestions |
+| `Shift+Alt+F` | Format |
+| `Alt+Z` | Word wrap |
+| `Ctrl+K M` | Change language |
+| `Ctrl+F` / `Ctrl+H` | Find / replace |
+| `Ctrl+/` | Comment |
+| `Ctrl+G` | Go to line |
+| `Alt+\` | Request an AI Companion suggestion |
 
 Shortcuts use `Ctrl+Shift` so they don't clash with `Ctrl+W`, `Ctrl+T` or the tmux prefix `Ctrl+B`. All of them can be changed in `config.toml`.
+</details>
 
-## Configuration (`config.toml`)
+<details>
+<summary><b>Configuration (<code>config.toml</code>)</b></summary>
 
-Created automatically on first start. You can edit it with any text editor while the app is closed.
-
-> **Always check `config.toml` itself for the complete configuration.** The example below shows only the most common options; the file next to the `.exe` (or in `%APPDATA%\RemoteTerminal`) lists every setting and every keyboard shortcut with its current value. Options added in newer versions are written into the file the next time the app saves its settings (for example after resizing the sidebar or toggling word wrap).
+The file is created on first start and can be edited while the app is closed. **The file itself lists every setting and shortcut.** New options are written into it the next time the app saves its settings.
 
 ```toml
 [settings]
-  font_family = "'Cascadia Mono', Consolas, 'Courier New', monospace"
   font_size = 14
   scrollback = 10000
-  copy_on_select = true
-  skip_update_version = ""   # an update you chose to skip at start-up (set by the Skip button)
-  sidebar_visible = true
-  sidebar_width = 300
-  sidebar_follow = true
   keepalive_seconds = 15
-  tmux_mouse = true          # turn on tmux mouse mode so the wheel scrolls history
-  download_dir = ""          # remembered last download folder
-  editor_word_wrap = false   # code editor: wrap long lines (also toggled with Alt+Z)
-  editor_tab_size = 4        # code editor: tab width when the file itself gives no hint
-  ai_agent_mode = false              # AI Sidebar agent mode: works visibly on the screen, auto-approves except risky actions
-  ai_companion = false               # AI Companion inline suggestions (AI Companion button in the top bar; Alt+\ asks)
-  ai_companion_provider = ""         # "claude", "codex" or "oa:<id>" of an [[ai_provider]]; "" = first usable
-  ai_companion_model = ""            # e.g. "haiku"; "" = the provider's default
-
-  [settings.keys]
-    new_tab = "Ctrl+Shift+T"
-    split_vertical = "Ctrl+Shift+E"
-    split_horizontal = "Ctrl+Shift+O"
-    close_pane = "Ctrl+Shift+W"
-    toggle_sidebar = "Ctrl+Shift+B"
-    # ... see the file for the full list
+  tmux_mouse = true          # enable tmux mouse mode so the wheel scrolls history
+  sidebar_follow = true
+  editor_word_wrap = false
+  ai_agent_mode = false
+  ai_companion = false
 
 [[profile]]
-  id = "3f9a1c2b7d10"
   name = "Production"
   host = "203.0.113.10"
   port = 22
   user = "deploy"
-  password = "dpapi:AQAAANCMnd8BFdER..."   # encrypted; omit to be asked each time
-  tmux_session = "main"                    # optional: auto-attach/create on connect
+  password = "dpapi:AQAAANCMnd8BFdER..."   # DPAPI-encrypted; omit to be asked
+  tmux_session = "main"                    # optional auto-attach/create
 
 [[profile]]
-  id = "8c1d0e4f5a22"
   name = "Lab"
   host = "10.0.0.5"
-  port = 22
   user = "admin"
-  auth = "key"                                   # log in with an SSH key
-  key_path = 'C:\Users\me\.ssh\id_ed25519'       # "password" then holds the encrypted passphrase, if any
+  auth = "key"
+  key_path = 'C:\Users\me\.ssh\id_ed25519' # "password" then holds the encrypted passphrase
 ```
 
-## Current limitations
+OpenAI-compatible providers are added with `[[ai_provider]]`, or through ⚙ in the AI panel.
+</details>
 
-- No ssh-agent / Pageant support; PuTTY `.ppk` keys must be exported to OpenSSH format.
-- Direct TCP connections only (no `ProxyCommand` / jump host / Cloudflare Tunnel yet).
-- Dragging files *from* the sidebar *to* Explorer is not supported; use Download (toolbar or right-click).
-- Windows only (password encryption uses DPAPI).
+## Limitations
+
+- No ssh-agent / Pageant support. PuTTY `.ppk` keys must be exported to OpenSSH format with PuTTYgen.
+- Direct TCP connections only: no `ProxyCommand`, jump host or Cloudflare Tunnel yet.
+- No drag from the sidebar to Explorer. Use Download instead.
+- Windows only, because password encryption uses DPAPI.
 
 ## Development
 
-Anyone can clone the repository and build or extend the app.
-
-**Requirements:** Windows 10/11, [Go](https://go.dev/dl/) 1.26+, [Node.js](https://nodejs.org/) 20+ (npm), and Git.
+**Requirements:** Windows 10/11, [Go](https://go.dev/dl/) 1.26+, [Node.js](https://nodejs.org/) 20+ and Git.
 
 ```powershell
 git clone https://github.com/narayaitsolution/remote-access.git
 cd remote-access
-go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.1   # once; puts wails in %USERPROFILE%\go\bin
-.\build.ps1
-# → build\bin\RemoteTerminal.exe   (version from version.go is shown in the app)
+go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.1   # once
+.\build.ps1        # → build\bin\RemoteTerminal.exe
 ```
-
-`build.ps1` installs the frontend packages, builds the UI and compiles one portable `.exe`. It never cleans `build\bin`, so a `config.toml` you keep there for testing is not deleted.
 
 | Task | Command |
 |---|---|
-| Run with hot reload while developing | `wails dev` |
-| Go tests (in-process fake SSH/SFTP server: login, SSH keys, reconnect into tmux, keepalive timeout, transfers, editor save/conflict, OpenAI-compatible provider, password encryption, Windows file icons) | `go test ./...` |
-| Live tests against the real AI CLIs (use your logged-in account and a little quota) | `$env:RT_AI_TEST="claude"; go test -run TestAI -v .` (or `codex`) |
-| Live test of the update check and download against GitHub Releases | `$env:RT_UPDATE_TEST="1"; go test -run "TestCheckUpdateLive|TestDownloadUpdateLive" -v .` |
-| Type-check the frontend | `cd frontend; npx tsc --noEmit` |
-| Regenerate the app icon from `assets/icon-source.png` | `go run ./tools/mkicon assets/icon-source.png` |
+| Hot reload | `wails dev` |
+| Tests (in-process fake SSH/SFTP server) | `go test ./...` |
+| Live AI tests (uses a little quota) | `$env:RT_AI_TEST="claude"; go test -run TestAI -v .` (or `codex`) |
+| Live update-check test | `$env:RT_UPDATE_TEST="1"; go test -run "TestCheckUpdateLive\|TestDownloadUpdateLive" -v .` |
+| Type-check frontend | `cd frontend; npx tsc --noEmit` |
+| Regenerate icon | `go run ./tools/mkicon assets/icon-source.png` |
 
-**Continuous integration:** every push and pull request runs the tests and builds the `.exe` on GitHub Actions ([`.github/workflows/build.yml`](.github/workflows/build.yml)); the build is attached to the run as an artifact.
+`build.ps1` never cleans `build\bin`, so a test `config.toml` kept there is not deleted.
 
-**Releasing a new version** (major = new feature, minor = fixes/small changes/docs):
-1. Change `appVersion` in `version.go` and `productVersion` in `wails.json`.
-2. Add a row to [Version history](#version-history) and a `## <version>` section to [`CHANGELOG.id.md`](CHANGELOG.id.md) (Indonesian; shown in the app's Information and update windows — a test fails if the running version has no section).
-3. Commit, then tag and push: `git tag -a v11.1 -m "Remote Terminal 11.1"; git push; git push origin v11.1`.
-4. GitHub Actions builds `RemoteTerminal.exe` and publishes it on the [Releases](https://github.com/narayaitsolution/remote-access/releases) page. The release notes contain the README row and the Indonesian section; installed apps find the release at their next start.
+CI ([`build.yml`](.github/workflows/build.yml)) runs the tests and builds the `.exe` on every push and pull request.
 
-**Privacy:** personal files are never part of the repository. `config.toml` (servers, encrypted passwords, API keys), `known_hosts`, SSH keys and built `.exe` files are listed in `.gitignore`. Passwords and API keys are only ever stored DPAPI-encrypted on the user's own PC.
+**Releasing** (major = new feature, minor = fixes, small changes or docs):
+1. Bump `appVersion` in `version.go` and `productVersion` in `wails.json`.
+2. Add a row to [Version history](#version-history) and a `## <version>` section to [`CHANGELOG.id.md`](CHANGELOG.id.md). A test fails if the section is missing.
+3. Tag and push: `git tag -a v11.1 -m "Remote Terminal 11.1"; git push; git push origin v11.1`.
 
-## How it works
+GitHub Actions then publishes the `.exe` to Releases.
 
-- The remote shell is started through a tiny wrapper that reports the terminal's TTY and shell PID (hidden from the screen). With that, the app asks the server on a separate SSH channel which tmux session and directory belong to this terminal — used for the sidebar's "follow terminal" mode and to know where to return after a reconnect.
-- Mouse: in a plain shell xterm.js selects natively. When the program has turned on mouse reporting, a left press is held back until it is clear whether it is a click (then it is replayed to the program as press + release) or a drag (then a local selection is started with xterm's force-selection modifier). Wheel events still go to tmux.
+**Privacy:** `config.toml`, `known_hosts`, SSH keys and built `.exe` files are in `.gitignore`.
 
-## Project layout
+<details>
+<summary><b>How it works & project layout</b></summary>
+
+- The remote shell starts through a tiny hidden wrapper that reports its TTY and PID. A separate SSH channel then resolves the pane's tmux session and current directory. This is used for sidebar "follow" mode and for reconnecting.
+- When a program enables mouse reporting, a left press is held back until it is clear whether it is a click or a drag. A click is replayed to the program; a drag starts a local selection.
 
 | Path | Purpose |
 |---|---|
-| `main.go`, `app.go` | Wails app setup and the API exposed to the UI |
-| `session.go` | SSH connection, PTY, keepalive, auto-reconnect, tmux/cwd tracking |
-| `files.go` | SFTP operations and transfers with progress |
-| `hostkey.go` | `known_hosts` verification |
-| `auth.go` | Password / SSH key authentication |
-| `config.go`, `secret_*.go` | `config.toml` and DPAPI password encryption |
-| `ai.go` | AI CLI processes (Claude Code / Codex) and the local MCP tool server |
-| `session_test.go`, `ai_test.go` | Integration tests (`RT_AI_TEST=claude` or `codex` runs the live AI test) |
-| `frontend/src/layout.ts` | Tabs, splits, focus, keyboard shortcuts |
-| `frontend/src/pane.ts` | Terminal (xterm.js), mouse/clipboard behaviour, reconnect UI |
-| `frontend/src/picker.ts` | Server list, profile editor, password prompt |
-| `frontend/src/sidebar.ts` | SFTP file browser, context menu, transfers, drag & drop |
-| `frontend/src/ai.ts` | AI panel: chat, approvals, tool execution in the terminal, usage |
-| `frontend/src/editor.ts`, `monaco.ts` | File editor tabs (Monaco) with save, dirty tracking and conflict detection |
-| `frontend/src/viewers.ts` | PDF, Markdown and image viewers |
-| `frontend/src/setup.ts`, `deps.go` | First-run check and winget installation of supporting programs |
-| `localedit.go`, `winshell_*.go` | Editing files in Windows applications with automatic upload |
-| `ai_openai.go` | OpenAI-compatible providers (base URL + API key) |
-| `fileicon*.go`, `frontend/src/fileicons.ts` | File-type icons taken from Windows (Explorer icons) |
-| `version.go` | Application version |
-| `build.ps1` | Builds `build\bin\RemoteTerminal.exe` |
-| `update.go`, `frontend/src/about.ts` | Update check/download (GitHub Releases) and the Information window |
-| `CHANGELOG.id.md` | Version history in Indonesian, embedded in the app and copied into the release notes |
-| `.github/workflows/build.yml` | CI: tests + build on every push; publishes the `.exe` to Releases for `v*` tags |
-| `assets/icon.svg`, `assets/icon-source.png`, `tools/mkicon` | App icon source; `go run ./tools/mkicon assets/icon-source.png` writes `build/appicon.png` and `build/windows/icon.ico` |
+| `main.go`, `app.go` | Wails setup, API for the UI |
+| `session.go` | SSH, PTY, keepalive, reconnect, tmux/cwd tracking |
+| `files.go` | SFTP operations and transfers |
+| `auth.go`, `hostkey.go` | Password/key auth, `known_hosts` |
+| `config.go`, `secret_*.go` | `config.toml`, DPAPI encryption |
+| `ai.go`, `ai_openai.go` | AI CLIs + local MCP tool server; OpenAI-compatible providers |
+| `localedit.go`, `winshell_*.go` | Editing in Windows apps with auto-upload |
+| `update.go`, `version.go`, `deps.go` | Update check, version, winget setup |
+| `fileicon*.go` | Windows Explorer file icons |
+| `frontend/src/` | UI: `layout`, `pane`, `picker`, `sidebar`, `ai`, `editor`/`monaco`, `viewers`, `setup`, `about`, `fileicons` |
+| `tools/mkicon`, `assets/` | Icon generation |
+</details>
 
 ## Version history
 
-Versioning scheme: the **major** number goes up when a new feature is added; the **minor** number goes up for fixes, small improvements and documentation. Each version is tagged in git (`v8.0`, `v7.0`, …).
+The full Indonesian changelog is in [`CHANGELOG.id.md`](CHANGELOG.id.md) and in the app (ⓘ).
+
+<details>
+<summary><b>Show all versions</b></summary>
 
 | Version | Type | Changes |
 |---|---|---|
-| **11.0** | Feature | Drag-to-select and auto-copy now also work in a plain shell (not only in tmux); plain clicks reach programs that use the mouse (opencode tabs and close buttons, htop, tmux panes) while drags still select; upload/download progress per file; Information window (ⓘ) with version, features and Indonesian version history; background update check at start-up with *Update* (downloads `RemoteTerminal.exe` to Downloads with install steps that keep `config.toml`) or *Skip*; the executable is now always `RemoteTerminal.exe` (no version in the name); the *auto-allow read/change* checkboxes were removed from the AI Sidebar (agent mode replaces them); new `skip_update_version` setting |
-| **10.0** | Feature | **Agent mode** in the AI Sidebar: the AI does a task end to end on the screen (finds the file, opens it in an editor tab, edits it with highlighted changes, tests it, fixes errors up to 5 rounds, reports); hands large tasks to opencode/Claude Code/Codex shown on screen or opens a new terminal tab when the screen is busy; actions approved automatically except risky ones; new tools `open_file`, `edit_file`, `open_terminal`, `use_terminal`; new `ai_agent_mode` setting. AI Companion: Copilot-style grey inline code suggestions in the editor, turned on/off with the new *AI Companion* button in the top bar; to save tokens a suggestion is requested only with `Alt+\` (`Tab` accepts) and sends the code around the cursor plus an outline of the rest of the file (imports and nearby signatures, about 1,000–1,500 tokens); the *AI* button is renamed *AI Sidebar*; works with OpenAI-compatible APIs, Claude Code or Codex, with its own provider/model choice; status shown in the editor status bar; new `ai_companion`, `ai_companion_provider`, `ai_companion_model` settings |
-| **9.0** | Feature | Code editing like VS Code for Python, PHP, Java, Go, C/C++, C#, Ruby, Rust, Kotlin, shell, SQL and more: keyword/built-in autocomplete, Tab snippets, language picker in the status bar (`Ctrl+K M`), *Format* (`Shift+Alt+F`), command palette (`F1`), word wrap toggle (`Alt+Z`), sticky scroll and folding; minimap removed; new `editor_word_wrap` and `editor_tab_size` settings; README is English-only and points to `config.toml` for the full configuration |
-| **8.4** | Minor | Executables are published on GitHub Releases, built automatically by GitHub Actions for every version tag; tests run on every push; the repository builds right after cloning (Development section in README); test data no longer contains personal names |
-| **8.3** | Minor | New application icon (terminal window with a remote-connection signal) replacing the default framework "W" icon; `tools/mkicon` regenerates the icons from `assets/icon-source.png` |
-| **8.2** | Minor | File icons in the SFTP sidebar now match Windows Explorer: each file type shows the icon of the program it opens with (PDF, Word, Excel, PowerPoint, text, archives, Python, …), with built-in icons as fallback |
-| **8.1** | Minor | Fixed a grey box covering the title of the first tab ("Pilih…") on the server picker; `build.ps1` names the executable after the version (`RemoteTerminal-8.1.exe`) |
-| **8.0** | Feature | PDF viewer, Markdown preview/edit, image viewer; editing Word/Excel/PowerPoint in the Windows application with automatic upload on save; *Open with Windows application* for any file; first-run check of supporting programs with one-click winget installation (Claude Code, Codex, LibreOffice) and *Login* buttons; version shown in the window title |
-| **7.0** | Feature | AI providers via any OpenAI-compatible URL + API key (OpenAI, OpenRouter, Groq, DeepSeek, Ollama, LM Studio…), models listed in the AI panel, keys stored encrypted |
-| **6.0** | Feature | Built-in file editor (Monaco, like VS Code): line numbers, syntax highlighting, `Ctrl+S` save, unsaved-changes prompt on close, conflict detection |
-| **5.1** | Minor | AI no longer types into the user's screen unless asked; new background-command tool; Codex receives the rules as developer instructions |
-| **5.0** | Feature | AI works as a normal chat by default; every server access needs permission (read / change); AI can drive programs running on screen (e.g. opencode in tmux); screen-watch tool; more special keys |
-| **4.0** | Feature | AI assistant using the installed Claude Code / Codex: reads the screen, runs commands visibly, sends keys, reads/writes files; approvals; model choice; usage and limits |
-| **3.1** | Minor | Documentation for SSH key login |
-| **3.0** | Feature | Login with SSH private keys (OpenSSH/PEM, with passphrase support) |
-| **2.1** | Minor | Copied text that a program wrapped to the screen width is joined back into flowing sentences |
-| **2.0** | Feature | Top-right notifications for copy and for every file action (upload, download, create, rename, delete, refresh, up) |
-| **1.2** | Minor | Multi-line copy uses Windows line breaks and drops padding spaces; MIT license |
-| **1.1** | Minor | Detailed README with Indonesian section |
-| **1.0** | Feature | First release: portable SSH terminal, server picker, tabs and splits, auto-reconnect into tmux, select-to-copy, SFTP sidebar following the terminal directory, upload/download, file management, drag & drop |
+| **11.0** | Feature | Select-to-copy in a plain shell. Clicks pass through to mouse-aware programs. Per-file transfer progress. Information window (ⓘ). Start-up update check with *Update* / *Skip*. Executable is always `RemoteTerminal.exe`. *Auto-allow* checkboxes replaced by agent mode. |
+| **10.0** | Feature | AI Sidebar **agent mode**. **AI Companion** inline suggestions (`Alt+\`). |
+| **9.0** | Feature | VS Code-like editing: autocomplete, snippets, language picker, format, command palette, word wrap, sticky scroll. |
+| **8.4** | Minor | Releases built by GitHub Actions; CI on every push. |
+| **8.3** | Minor | New app icon. |
+| **8.2** | Minor | Windows Explorer file icons in the sidebar. |
+| **8.1** | Minor | Fixed a grey box covering the first tab title. |
+| **8.0** | Feature | PDF/Markdown/image viewers. Office editing with auto-upload. First-run winget setup. |
+| **7.0** | Feature | OpenAI-compatible AI providers. |
+| **6.0** | Feature | Built-in Monaco editor with conflict detection. |
+| **5.1** | Minor | AI no longer types into the screen unless asked; background command tool. |
+| **5.0** | Feature | AI chat by default with read/change permissions; AI can drive on-screen programs. |
+| **4.0** | Feature | AI assistant via Claude Code / Codex. |
+| **3.1** | Minor | SSH key documentation. |
+| **3.0** | Feature | SSH key login. |
+| **2.1** | Minor | Wrapped lines rejoined on copy. |
+| **2.0** | Feature | Notifications for copy and file actions. |
+| **1.2** | Minor | CRLF multi-line copy; MIT license. |
+| **1.1** | Minor | Detailed README. |
+| **1.0** | Feature | First release. |
+</details>
 
 ## Built with
 
-[Wails](https://wails.io), [xterm.js](https://xtermjs.org), [Monaco Editor](https://microsoft.github.io/monaco-editor/), [pdf.js](https://mozilla.github.io/pdf.js/), [marked](https://marked.js.org), [DOMPurify](https://github.com/cure53/DOMPurify), [golang.org/x/crypto/ssh](https://pkg.go.dev/golang.org/x/crypto/ssh), [pkg/sftp](https://github.com/pkg/sftp), [BurntSushi/toml](https://github.com/BurntSushi/toml).
+[Wails](https://wails.io) · [xterm.js](https://xtermjs.org) · [Monaco Editor](https://microsoft.github.io/monaco-editor/) · [pdf.js](https://mozilla.github.io/pdf.js/) · [marked](https://marked.js.org) · [DOMPurify](https://github.com/cure53/DOMPurify) · [x/crypto/ssh](https://pkg.go.dev/golang.org/x/crypto/ssh) · [pkg/sftp](https://github.com/pkg/sftp) · [BurntSushi/toml](https://github.com/BurntSushi/toml)
 
 ## License
 
