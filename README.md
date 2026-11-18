@@ -2,6 +2,7 @@
 
 [![Latest release](https://img.shields.io/github/v/release/narayaitsolution/remote-access)](https://github.com/narayaitsolution/remote-access/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-Lynk.id-orange?logo=buymeacoffee&logoColor=white)](https://lynk.id/narayait/nxy5vvy8xwlw/checkout)
 
 A portable SSH terminal for Windows with an SFTP sidebar, a VS Code-like editor and a built-in AI assistant. It has reliable copy-paste and connects straight into `tmux` sessions.
 
@@ -177,12 +178,15 @@ The file is created on first start and can be edited while the app is closed. **
 OpenAI-compatible providers are added with `[[ai_provider]]`, or through ⚙ in the AI panel.
 </details>
 
-## Limitations
+## Support the project
 
-- No ssh-agent / Pageant support. PuTTY `.ppk` keys must be exported to OpenSSH format with PuTTYgen.
-- Direct TCP connections only: no `ProxyCommand`, jump host or Cloudflare Tunnel yet.
-- No drag from the sidebar to Explorer. Use Download instead.
-- Windows only, because password encryption uses DPAPI.
+Remote Terminal is **free and open source** under the MIT license, and it will stay that way.
+If it saves you time, you can support its development with a voluntary donation:
+
+[![Buy me a coffee](https://img.shields.io/badge/☕%20Buy%20me%20a%20coffee-Donate%20via%20Lynk.id-orange?style=for-the-badge)](https://lynk.id/narayait/nxy5vvy8xwlw/checkout)
+
+Donations are entirely optional. They do not unlock features, grant extra rights or change the license terms.
+Other ways to help: star the repository, report bugs or contribute a pull request.
 
 ## Development
 
@@ -275,4 +279,5 @@ The full Indonesian changelog is in [`CHANGELOG.id.md`](CHANGELOG.id.md) and in 
 
 ## License
 
-[MIT](LICENSE) © 2026 narayaitsolution
+[MIT](LICENSE) © 2026 narayaitsolution. Free to use, modify and distribute, including commercially.
+Donations are voluntary and are not required to use the software.
