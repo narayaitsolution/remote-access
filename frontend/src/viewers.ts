@@ -4,6 +4,7 @@ import { marked } from 'marked';
 import { ReadFileBase64 } from '../wailsjs/go/main/App';
 import { EditorView } from './editor';
 import { h } from './ui';
+import { t } from './i18n';
 
 /** Common shape of everything that can be shown in an editor-like tab. */
 export interface FileView {
@@ -54,7 +55,7 @@ abstract class ReadOnlyView implements FileView {
       h('span', { class: 'ed-path' }, path.slice(0, path.lastIndexOf('/') + 1)),
       h('span', { class: 'ed-file' }, this.fileName),
       h('span', { class: 'ed-spacer' }));
-    this.body = h('div', { class: 'viewer-body', tabindex: '0' }, h('div', { class: 'ed-loading' }, 'Membuka ' + path + ' …'));
+    this.body = h('div', { class: 'viewer-body', tabindex: '0' }, h('div', { class: 'ed-loading' }, t('Membuka {0} …', path)));
     this.el = h('div', { class: 'editor-view' }, this.bar, this.body);
   }
   get fileName() { return this.path.split('/').pop() || this.path; }
@@ -95,11 +96,11 @@ class PdfView extends ReadOnlyView {
     this.doc = await pdfjs.getDocument({ data, isEvalSupported: false }).promise;
     const btn = (label: string, title: string, fn: () => void) => h('button', { class: 'btn small', title, onclick: fn }, label);
     this.bar.append(
-      h('span', { class: 'ed-meta' }, `${this.doc.numPages} halaman`),
-      btn('−', 'Perkecil', () => this.zoom(this.scale / 1.2)),
+      h('span', { class: 'ed-meta' }, t('{0} halaman', this.doc.numPages)),
+      btn('−', t('Perkecil'), () => this.zoom(this.scale / 1.2)),
       this.zoomLabel,
-      btn('+', 'Perbesar', () => this.zoom(this.scale * 1.2)),
-      btn('Lebar', 'Sesuaikan lebar', () => this.fitWidth()));
+      btn('+', t('Perbesar'), () => this.zoom(this.scale * 1.2)),
+      btn(t('Lebar'), t('Sesuaikan lebar'), () => this.fitWidth()));
     this.body.replaceChildren(this.pages);
     await this.fitWidth();
   }

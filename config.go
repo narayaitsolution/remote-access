@@ -30,6 +30,7 @@ type Settings struct {
 	AIWidth          int               `toml:"ai_width" json:"aiWidth"`
 	AIProvider       string            `toml:"ai_provider" json:"aiProvider"`                  // "claude" or "codex"
 	AIModels         map[string]string `toml:"ai_models" json:"aiModels"`                      // provider -> chosen model
+	Language         string            `toml:"language" json:"language"`                       // "" = Windows language, "id", "en"; applied at start-up
 	SkipUpdate       string            `toml:"skip_update_version" json:"skipUpdate"`          // update the user chose to skip at start-up
 	SetupDone        bool              `toml:"setup_done" json:"setupDone"`                    // first-run environment check shown
 	EditorWordWrap   bool              `toml:"editor_word_wrap" json:"editorWordWrap"`         // code editor: wrap long lines (Alt+Z)
@@ -165,7 +166,7 @@ func loadConfig(path string) (Config, error) {
 		return cfg, err
 	}
 	if _, err := toml.Decode(string(data), &cfg); err != nil {
-		return defaultConfig(), fmt.Errorf("config.toml tidak valid: %w", err)
+		return defaultConfig(), fmt.Errorf(L("config.toml tidak valid: %w", "config.toml is invalid: %w"), err)
 	}
 	if cfg.Settings.EditorTabSize < 1 || cfg.Settings.EditorTabSize > 16 {
 		cfg.Settings.EditorTabSize = 4

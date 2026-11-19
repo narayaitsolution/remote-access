@@ -3,6 +3,7 @@ import { OpenFileForEdit, SaveEditedFile } from '../wailsjs/go/main/App';
 import { companion, companionSettings, toggleCompanion } from './companion';
 import { saveSettingsSoon, store } from './state';
 import { errMsg, h, openModal, toast } from './ui';
+import { t } from './i18n';
 
 type MonacoMod = typeof import('./monaco');
 
@@ -24,7 +25,7 @@ export class EditorView {
 
   constructor(public sessionId: string, public path: string, private onChange: () => void) {
     this.crumb = h('div', { class: 'ed-crumb', title: path });
-    this.host = h('div', { class: 'ed-host' }, h('div', { class: 'ed-loading' }, 'Membuka ' + path + ' …'));
+    this.host = h('div', { class: 'ed-host' }, h('div', { class: 'ed-loading' }, t('Membuka {0} …', path)));
     this.status = h('div', { class: 'ed-status' });
     this.el = h('div', { class: 'editor-view' }, this.crumb, this.host, this.status);
     this.renderCrumb();
@@ -87,12 +88,12 @@ export class EditorView {
     // VS Code shortcuts that the standalone Monaco editor doesn't define itself.
     this.ed.addAction({ id: 'rt.toggleWordWrap', label: 'View: Toggle Word Wrap', keybindings: [monaco.KeyMod.Alt | monaco.KeyCode.KeyZ], run: () => this.toggleWrap() });
     this.ed.addAction({ id: 'rt.changeLanguage', label: 'Change Language Mode', keybindings: [monaco.KeyMod.chord(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, monaco.KeyCode.KeyM)], run: () => { this.pickLanguage(); } });
-    this.ed.addAction({ id: 'rt.companionTrigger', label: 'AI Companion: Minta Saran', keybindings: [monaco.KeyMod.Alt | monaco.KeyCode.Backslash], run: ed => {
-      if (!companion.enabled) { toast('AI Companion belum aktif. Aktifkan lewat tombol AI Companion di bagian atas.'); return; }
+    this.ed.addAction({ id: 'rt.companionTrigger', label: t('AI Companion: Minta Saran'), keybindings: [monaco.KeyMod.Alt | monaco.KeyCode.Backslash], run: ed => {
+      if (!companion.enabled) { toast(t('AI Companion belum aktif. Aktifkan lewat tombol AI Companion di bagian atas.')); return; }
       ed.trigger('companion', 'editor.action.inlineSuggest.trigger', {});
     } });
-    this.ed.addAction({ id: 'rt.companionToggle', label: 'AI Companion: Aktifkan / Matikan', run: () => { toggleCompanion(); } });
-    this.ed.addAction({ id: 'rt.companionSettings', label: 'AI Companion: Pilih Provider & Model', run: () => { companionSettings(); } });
+    this.ed.addAction({ id: 'rt.companionToggle', label: t('AI Companion: Aktifkan / Matikan'), run: () => { toggleCompanion(); } });
+    this.ed.addAction({ id: 'rt.companionSettings', label: t('AI Companion: Pilih Provider & Model'), run: () => { companionSettings(); } });
     this.offCompanion = companion.onChange(() => this.renderStatus());
     this.ed.addAction({ id: 'rt.save', label: 'File: Save', run: () => { this.save(); } });
     model.onDidChangeContent(() => { this.renderCrumb(); this.renderStatus(); this.onChange(); });
@@ -107,12 +108,12 @@ export class EditorView {
     this.crumb.replaceChildren(
       h('span', { class: 'ed-path' }, '/' + parts.slice(0, -1).join('/') + (parts.length > 1 ? '/' : '')),
       h('span', { class: 'ed-file' }, this.fileName),
-      ...(this.dirty ? [h('span', { class: 'ed-dirty', title: 'Belum disimpan' }, '●')] : []),
+      ...(this.dirty ? [h('span', { class: 'ed-dirty', title: t('Belum disimpan') }, '●')] : []),
       h('span', { class: 'ed-spacer' }),
-      h('button', { class: 'btn small ghost', title: 'Palet perintah (F1)', onclick: () => this.runAction('editor.action.quickCommand') }, 'Perintah'),
-      h('button', { class: 'btn small ghost', title: 'Format dokumen (Shift+Alt+F)', onclick: () => this.format() }, 'Format'),
-      h('button', { class: 'btn small ghost' + (store.settings.editorWordWrap ? ' on' : ''), title: 'Bungkus baris panjang (Alt+Z)', onclick: () => this.toggleWrap() }, 'Wrap'),
-      h('button', { class: 'btn small' + (this.dirty ? ' primary' : ''), title: 'Simpan (Ctrl+S)', onclick: () => this.save() }, 'Simpan'));
+      h('button', { class: 'btn small ghost', title: t('Palet perintah (F1)'), onclick: () => this.runAction('editor.action.quickCommand') }, t('Perintah')),
+      h('button', { class: 'btn small ghost', title: t('Format dokumen (Shift+Alt+F)'), onclick: () => this.format() }, 'Format'),
+      h('button', { class: 'btn small ghost' + (store.settings.editorWordWrap ? ' on' : ''), title: t('Bungkus baris panjang (Alt+Z)'), onclick: () => this.toggleWrap() }, 'Wrap'),
+      h('button', { class: 'btn small' + (this.dirty ? ' primary' : ''), title: t('Simpan (Ctrl+S)'), onclick: () => this.save() }, t('Simpan')));
   }
 
   private langLabel = '';
@@ -126,20 +127,20 @@ export class EditorView {
     const sel = this.ed!.getSelection();
     const selLen = sel && !sel.isEmpty() ? m.getValueLengthInRange(sel) : 0;
     this.status.replaceChildren(
-      h('span', {}, `Ln ${pos.lineNumber}, Col ${pos.column}` + (selLen ? ` (${selLen} dipilih)` : '')),
+      h('span', {}, `Ln ${pos.lineNumber}, Col ${pos.column}` + (selLen ? t(' ({0} dipilih)', selLen) : '')),
       h('span', { class: 'ed-spacer' }),
-      ...(this.dirty ? [h('span', {}, 'belum disimpan')] : []),
-      h('span', {}, opts.insertSpaces ? 'Spasi: ' + opts.tabSize : 'Tab: ' + opts.tabSize),
+      ...(this.dirty ? [h('span', {}, t('belum disimpan'))] : []),
+      h('span', {}, opts.insertSpaces ? t('Spasi: ') + opts.tabSize : 'Tab: ' + opts.tabSize),
       h('span', {}, 'UTF-8'),
       h('span', {}, eol),
       this.companionBadge(),
-      h('button', { class: 'ed-st-btn', title: 'Ganti bahasa (Ctrl+K M)', onclick: () => this.pickLanguage() }, this.langLabel));
+      h('button', { class: 'ed-st-btn', title: t('Ganti bahasa (Ctrl+K M)'), onclick: () => this.pickLanguage() }, this.langLabel));
   }
 
   private companionBadge(): HTMLElement {
     const st = companion.status;
-    const label = st === 'off' ? 'AI Companion: mati' : st === 'thinking' ? 'AI Companion: berpikir…' : st === 'error' ? 'AI Companion: galat' : 'AI Companion: Alt+\\';
-    const title = st === 'error' ? companion.error + '\nKlik untuk mengatur provider.' : 'AI Companion: Tab terima saran, Esc tolak, Alt+\\ minta saran. Klik untuk mengatur provider.';
+    const label = st === 'off' ? t('AI Companion: mati') : st === 'thinking' ? t('AI Companion: berpikir…') : st === 'error' ? t('AI Companion: galat') : 'AI Companion: Alt+\\';
+    const title = st === 'error' ? companion.error + '\n' + t('Klik untuk mengatur provider.') : t('AI Companion: Tab terima saran, Esc tolak, Alt+\\ minta saran. Klik untuk mengatur provider.');
     return h('button', { class: 'ed-st-btn companion-' + st, title, onclick: () => companionSettings() }, label);
   }
 
@@ -152,7 +153,7 @@ export class EditorView {
   private async format() {
     const a = this.ed?.getAction('editor.action.formatDocument');
     if (!a || !a.isSupported()) {
-      toast(`Format otomatis belum tersedia untuk ${this.langLabel}`, 'info');
+      toast(t('Format otomatis belum tersedia untuk {0}', this.langLabel), 'info');
       return;
     }
     await a.run();
@@ -171,7 +172,7 @@ export class EditorView {
     const mod = this.mod, m = this.ed?.getModel();
     if (!mod || !m) return;
     const list = mod.languageList();
-    const filter = h('input', { class: 'lang-filter', type: 'text', placeholder: 'Cari bahasa…', spellcheck: 'false' });
+    const filter = h('input', { class: 'lang-filter', type: 'text', placeholder: t('Cari bahasa…'), spellcheck: 'false' });
     const box = h('div', { class: 'lang-list' });
     const close = () => filter.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     const choose = (id: string) => {
@@ -191,7 +192,7 @@ export class EditorView {
       if (e.key === 'Enter') { e.preventDefault(); box.querySelector<HTMLButtonElement>('button')?.click(); }
     });
     render();
-    await openModal('Pilih bahasa', h('div', {}, filter, box), [{ label: 'Tutup', value: 'close' }]);
+    await openModal(t('Pilih bahasa'), h('div', {}, filter, box), [{ label: t('Tutup'), value: 'close' }]);
     this.ed?.focus();
   }
 
@@ -204,7 +205,7 @@ export class EditorView {
     try {
       this.stamp = await SaveEditedFile(this.sessionId, this.path, m.getValue(), this.stamp, force);
       this.savedVersion = version;
-      toast(`Tersimpan: ${this.fileName}`, 'success');
+      toast(t('Tersimpan: {0}', this.fileName), 'success');
       this.renderCrumb(); this.renderStatus(); this.onChange();
       return true;
     } catch (e) {
@@ -212,14 +213,14 @@ export class EditorView {
       if (msg.startsWith('conflict:')) {
         this.saving = false;
         const body = h('div', { class: 'modal-text' });
-        body.textContent = msg.slice('conflict:'.length) + '. Menyimpan sekarang akan menimpa perubahan tersebut.';
-        const r = await openModal('File berubah di server', body, [
-          { label: 'Batal', value: 'cancel' },
-          { label: 'Timpa', value: 'overwrite', danger: true, primary: true },
+        body.textContent = msg.slice('conflict:'.length) + t('. Menyimpan sekarang akan menimpa perubahan tersebut.');
+        const r = await openModal(t('File berubah di server'), body, [
+          { label: t('Batal'), value: 'cancel' },
+          { label: t('Timpa'), value: 'overwrite', danger: true, primary: true },
         ]);
         return r === 'overwrite' ? this.save(true) : false;
       }
-      toast(`Gagal menyimpan ${this.fileName}: ${errMsg(e)}`, 'error');
+      toast(t('Gagal menyimpan {0}: {1}', this.fileName, errMsg(e)), 'error');
       return false;
     } finally {
       this.saving = false;

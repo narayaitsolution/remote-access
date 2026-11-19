@@ -277,14 +277,14 @@ func (s *Session) reconnectLoop() bool {
 		s.mu.Lock()
 		tmux := s.tmux
 		s.mu.Unlock()
-		s.setState(stateReconnecting, fmt.Sprintf("Menyambung ulang… (percobaan %d)", attempt))
+		s.setState(stateReconnecting, fmt.Sprintf(L("Menyambung ulang… (percobaan %d)", "Reconnecting… (attempt %d)"), attempt))
 		err := s.connect(startScript(tmux, ""))
 		if err == nil {
 			s.setState(stateConnected, "")
 			return true
 		}
 		if isAuthError(err) {
-			s.setState(stateError, "Autentikasi gagal: "+err.Error())
+			s.setState(stateError, L("Autentikasi gagal: ", "Authentication failed: ")+err.Error())
 			return false
 		}
 		select {
@@ -379,7 +379,7 @@ func (s *Session) runCmd(cmd string, timeout time.Duration) (string, error) {
 	client, state := s.client, s.state
 	s.mu.Unlock()
 	if client == nil || state != stateConnected {
-		return "", errors.New("tidak terhubung")
+		return "", errors.New(L("tidak terhubung", "not connected"))
 	}
 	sess, err := client.NewSession()
 	if err != nil {
@@ -409,7 +409,7 @@ func (s *Session) info() (SessionInfo, error) {
 	tty, pid := s.tty, s.pid
 	s.mu.Unlock()
 	if pid == "" {
-		return SessionInfo{}, errors.New("info belum tersedia")
+		return SessionInfo{}, errors.New(L("info belum tersedia", "info not available yet"))
 	}
 	cmd := `tmux list-clients -F '#{client_tty}|#{session_name}|#{pane_current_command}|#{pane_current_path}' 2>/dev/null; echo '@@'; readlink /proc/` + pid + `/cwd 2>/dev/null; echo '@@'; ps -o comm= --ppid ` + pid + ` 2>/dev/null | tail -n 1; ps -o comm= -p ` + pid + ` 2>/dev/null`
 	out, err := s.runCmd(cmd, 8*time.Second)
@@ -457,14 +457,14 @@ func (s *Session) getSFTP() (*sftp.Client, error) {
 	client, state := s.client, s.state
 	s.mu.Unlock()
 	if client == nil || state != stateConnected {
-		return nil, errors.New("tidak terhubung")
+		return nil, errors.New(L("tidak terhubung", "not connected"))
 	}
 	c, err := sftp.NewClient(client,
 		sftp.UseConcurrentWrites(true),
 		sftp.UseConcurrentReads(true),
 		sftp.MaxConcurrentRequestsPerFile(64))
 	if err != nil {
-		return nil, fmt.Errorf("SFTP tidak tersedia: %w", err)
+		return nil, fmt.Errorf(L("SFTP tidak tersedia: %w", "SFTP not available: %w"), err)
 	}
 	s.sftpc = c
 	return c, nil
@@ -496,9 +496,9 @@ func authMessage(p Profile, err error) string {
 		return ae.msg
 	}
 	if p.authType() == "key" {
-		return "Key ditolak server. Pastikan public key sudah ada di ~/.ssh/authorized_keys di server."
+		return L("Key ditolak server. Pastikan public key sudah ada di ~/.ssh/authorized_keys di server.", "The server rejected the key. Make sure the public key is in ~/.ssh/authorized_keys on the server.")
 	}
-	return "Password salah atau ditolak server"
+	return L("Password salah atau ditolak server", "Wrong password or rejected by the server")
 }
 
 // dial opens an authenticated SSH connection.
@@ -539,7 +539,7 @@ func (s *Session) runCombined(cmd string, timeout time.Duration) (string, int, e
 	client, state := s.client, s.state
 	s.mu.Unlock()
 	if client == nil || state != stateConnected {
-		return "", 0, errors.New("tidak terhubung")
+		return "", 0, errors.New(L("tidak terhubung", "not connected"))
 	}
 	sess, err := client.NewSession()
 	if err != nil {
@@ -566,6 +566,6 @@ func (s *Session) runCombined(cmd string, timeout time.Duration) (string, int, e
 		return string(r.out), r.code, r.err
 	case <-time.After(timeout):
 		sess.Signal(ssh.SIGTERM)
-		return "", 0, fmt.Errorf("perintah masih berjalan setelah %s dan dihentikan", timeout)
+		return "", 0, fmt.Errorf(L("perintah masih berjalan setelah %s dan dihentikan", "command still running after %s and was stopped"), timeout)
 	}
 }

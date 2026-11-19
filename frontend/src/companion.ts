@@ -2,6 +2,7 @@
 // Off by default; the "AI Companion" button in the top bar turns it on and off.
 // To save tokens the AI is only asked when the user presses Alt+\; Tab accepts
 // the suggestion, Esc dismisses it.
+import { t } from './i18n';
 import type * as Monaco from 'monaco-editor';
 import { AICancelComplete, AIComplete, AIProviders } from '../wailsjs/go/main/App';
 import { main } from '../wailsjs/go/models';
@@ -51,12 +52,12 @@ export async function toggleCompanion() {
     store.settings.companion = false;
     saveSettingsSoon();
     setStatus('off');
-    toast('AI Companion dimatikan');
+    toast(t('AI Companion dimatikan'));
     return;
   }
   let r = await resolve().catch(() => null);
   if (!r) {
-    toast('Belum ada AI yang terhubung. Pasang Claude Code / Codex atau tambahkan provider di panel AI (⚙).', 'error');
+    toast(t('Belum ada AI yang terhubung. Pasang Claude Code / Codex atau tambahkan provider di panel AI (⚙).'), 'error');
     return;
   }
   if (!store.settings.companionProvider) {
@@ -67,7 +68,7 @@ export async function toggleCompanion() {
   store.settings.companion = true;
   saveSettingsSoon();
   setStatus('idle');
-  toast(`AI Companion aktif (${r.p.name}${r.model ? ' · ' + r.model : ''}). Tekan Alt+\\ di editor untuk meminta saran.`, 'success');
+  toast(t('AI Companion aktif ({0}). Tekan Alt+\\ di editor untuk meminta saran.', r.p.name + (r.model ? ' · ' + r.model : '')), 'success');
 }
 
 /** Dialog to choose the provider and model. Resolves true when saved. */
@@ -75,7 +76,7 @@ export async function companionSettings(): Promise<boolean> {
   const list = await loadProviders(true);
   const cur = await resolve();
   const provSel = h('select', {}, ...list.map(p =>
-    h('option', { value: p.id, disabled: !p.installed }, p.name + (p.installed ? '' : ' (tidak terpasang)'))));
+    h('option', { value: p.id, disabled: !p.installed }, p.name + (p.installed ? '' : t(' (tidak terpasang)')))));
   if (cur) provSel.value = cur.p.id;
   const modelInput = h('input', { type: 'text', spellcheck: 'false', list: 'companion-models', value: cur?.model ?? '' });
   const dl = h('datalist', { id: 'companion-models' });
@@ -85,19 +86,19 @@ export async function companionSettings(): Promise<boolean> {
     dl.replaceChildren(...(p?.models ?? []).filter(Boolean).map(m => h('option', { value: m })));
     if (!keepModel) modelInput.value = p?.id === 'claude' ? 'haiku' : p?.defaultModel ?? '';
     hint.textContent = p?.kind === 'openai'
-      ? 'API (OpenAI-compatible): paling cepat. Model kecil/cepat sudah cukup untuk saran kode.'
-      : 'CLI: saran butuh beberapa detik dan memakai kuota langganan Anda. Model kecil (mis. haiku) disarankan.';
+      ? t('API (OpenAI-compatible): paling cepat. Model kecil/cepat sudah cukup untuk saran kode.')
+      : t('CLI: saran butuh beberapa detik dan memakai kuota langganan Anda. Model kecil (mis. haiku) disarankan.');
   };
   provSel.addEventListener('change', () => fill(false));
   fill(true);
   const body = h('div', { class: 'form' },
-    h('label', {}, 'Provider AI', provSel),
+    h('label', {}, t('Provider AI'), provSel),
     h('label', {}, 'Model', modelInput, dl),
     hint,
-    h('div', { class: 'muted companion-hint' }, 'Saran hanya diminta saat Anda menekan Alt+\\. Yang dikirim: kode di sekitar kursor (sekitar 4.000 karakter) dan ringkasan import serta nama fungsi/kelas dari bagian file lainnya.'));
+    h('div', { class: 'muted companion-hint' }, t('Saran hanya diminta saat Anda menekan Alt+\\. Yang dikirim: kode di sekitar kursor (sekitar 4.000 karakter) dan ringkasan import serta nama fungsi/kelas dari bagian file lainnya.')));
   const r = await openModal('AI Companion', body, [
-    { label: 'Batal', value: 'cancel' },
-    { label: 'Simpan', value: 'save', primary: true },
+    { label: t('Batal'), value: 'cancel' },
+    { label: t('Simpan'), value: 'save', primary: true },
   ]);
   if (r !== 'save') return false;
   store.settings.companionProvider = provSel.value;
@@ -143,7 +144,7 @@ export function registerCompanion(monaco: typeof Monaco) {
       }
       const r = await resolve().catch(() => null);
       if (!r) {
-        toast('AI Companion: belum ada AI yang terhubung', 'error');
+        toast(t('AI Companion: belum ada AI yang terhubung'), 'error');
         return { items: [] };
       }
       const id = `c${++reqSeq}`;
@@ -157,7 +158,7 @@ export function registerCompanion(monaco: typeof Monaco) {
         if (companion.enabled) setStatus('idle');
         if (token.isCancellationRequested) return { items: [] };
         if (!insert) {
-          toast('AI Companion: tidak ada saran untuk posisi ini');
+          toast(t('AI Companion: tidak ada saran untuk posisi ini'));
           return { items: [] };
         }
         last = { uri: model.uri.toString(), start: offset, before: text.slice(Math.max(0, offset - 200), offset), insert };

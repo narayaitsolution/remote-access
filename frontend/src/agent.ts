@@ -1,5 +1,6 @@
 // Agent mode: the AI Sidebar works visibly on the user's screen and its actions
 // are approved automatically, except those that look destructive.
+import { t } from './i18n';
 
 /** Shell patterns that always need the user's confirmation, with a reason. */
 const DANGER: [RegExp, string][] = [
@@ -31,6 +32,6 @@ export function dangerReason(tool: string, args: any): string {
   if (tool === 'run_command' || tool === 'run_background') text = String(args?.command ?? '');
   else if (tool === 'send_keys') text = String(args?.keys ?? '');
   else return '';
-  for (const [re, why] of DANGER) if (re.test(text)) return why;
+  for (const [re, why] of DANGER) if (re.test(text)) return t(why);
   return '';
 }

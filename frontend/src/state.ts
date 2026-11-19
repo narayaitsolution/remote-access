@@ -1,6 +1,7 @@
 // Shared application state and cross-module hooks.
 import { GetState, SaveSettings } from '../wailsjs/go/main/App';
 import { main } from '../wailsjs/go/models';
+import { setLang } from './i18n';
 import type { Pane } from './pane';
 
 export interface ProfileView {
@@ -16,6 +17,8 @@ export interface Settings {
   setupDone: boolean;
   editorWordWrap: boolean; editorTabSize: number;
   skipUpdate: string;
+  /** '' = Windows display language, 'id' or 'en' (applied at start-up). */
+  language: string;
   aiAgentMode: boolean;
   companion: boolean; companionProvider: string; companionModel: string;
   keys: Record<string, string>;
@@ -35,6 +38,7 @@ export async function refreshState() {
   store.profiles = (s.profiles || []) as unknown as ProfileView[];
   store.configPath = s.configPath;
   store.configError = s.configError;
+  setLang(s.lang);
   store.listeners.forEach(f => f());
 }
 

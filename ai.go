@@ -457,7 +457,7 @@ func (a *App) AISend(chatID, provider, model, text, context string) error {
 		}
 		return a.runOpenAI(c, text)
 	}
-	return errors.New("provider tidak dikenal")
+	return errors.New(L("provider tidak dikenal", "unknown provider"))
 }
 
 func (a *App) startClaude(c *aiChat) error {
@@ -470,7 +470,7 @@ func (a *App) startClaude(c *aiChat) error {
 	a.ai.mu.Unlock()
 	path, err := exec.LookPath("claude")
 	if err != nil {
-		return errors.New("Claude Code (claude) tidak ditemukan di PATH")
+		return errors.New(L("Claude Code (claude) tidak ditemukan di PATH", "Claude Code (claude) was not found in PATH"))
 	}
 	mcp, _ := json.Marshal(map[string]any{"mcpServers": map[string]any{"rt": map[string]any{
 		"type": "http", "url": a.mcpURL(c.id), "headers": map[string]string{"Authorization": "Bearer " + a.ai.token},
@@ -499,7 +499,7 @@ func (a *App) runCodex(c *aiChat, text string) error {
 	a.ai.mu.Lock()
 	if c.running {
 		a.ai.mu.Unlock()
-		return errors.New("Codex masih bekerja; tunggu atau tekan Stop")
+		return errors.New(L("Codex masih bekerja; tunggu atau tekan Stop", "Codex is still working; wait or press Stop"))
 	}
 	session, model, context := c.session, c.model, c.context
 	a.ai.mu.Unlock()
@@ -557,7 +557,7 @@ func (a *App) runCodex(c *aiChat, text string) error {
 func codexBinary() (path string, env []string, native bool, err error) {
 	shim, err := exec.LookPath("codex")
 	if err != nil {
-		return "", nil, false, errors.New("Codex (codex) tidak ditemukan di PATH")
+		return "", nil, false, errors.New(L("Codex (codex) tidak ditemukan di PATH", "Codex (codex) was not found in PATH"))
 	}
 	if strings.EqualFold(filepath.Ext(shim), ".exe") {
 		return shim, nil, true, nil
@@ -588,7 +588,7 @@ func (a *App) startAgent(c *aiChat, cmd *exec.Cmd, stdin io.WriteCloser) error {
 	var stderr strings.Builder
 	cmd.Stderr = &limitedWriter{w: &stderr, n: 8000}
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("gagal menjalankan %s: %w", filepath.Base(cmd.Path), err)
+		return fmt.Errorf(L("gagal menjalankan %s: %w", "failed to run %s: %w"), filepath.Base(cmd.Path), err)
 	}
 	a.ai.mu.Lock()
 	c.cmd, c.stdin, c.running = cmd, stdin, true

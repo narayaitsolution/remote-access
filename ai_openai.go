@@ -53,7 +53,7 @@ func (a *App) aiProviderConfig(id string) (AIProviderConfig, error) {
 			return p, nil
 		}
 	}
-	return AIProviderConfig{}, errors.New("provider AI tidak ditemukan")
+	return AIProviderConfig{}, errors.New(L("provider AI tidak ditemukan", "AI provider not found"))
 }
 
 // ListAIProviders returns the configured OpenAI-compatible providers (without keys).
@@ -87,7 +87,7 @@ func normalizeBaseURL(u string) string {
 func (a *App) SaveAIProvider(in AIProviderInput) (AIProviderView, error) {
 	in.Name, in.BaseURL = strings.TrimSpace(in.Name), normalizeBaseURL(in.BaseURL)
 	if in.BaseURL == "" || !(strings.HasPrefix(in.BaseURL, "http://") || strings.HasPrefix(in.BaseURL, "https://")) {
-		return AIProviderView{}, errors.New("URL harus diawali http:// atau https://")
+		return AIProviderView{}, errors.New(L("URL harus diawali http:// atau https://", "URL must start with http:// or https://"))
 	}
 	if in.Name == "" {
 		in.Name = in.BaseURL
@@ -173,7 +173,7 @@ func fetchModels(base, key string) ([]string, error) {
 		} `json:"models"`
 	}
 	if err := json.Unmarshal(body, &r); err != nil {
-		return nil, fmt.Errorf("respons /models tidak dikenali: %s", snippet(body))
+		return nil, fmt.Errorf(L("respons /models tidak dikenali: %s", "unrecognized /models response: %s"), snippet(body))
 	}
 	var out []string
 	for _, m := range r.Data {
@@ -256,7 +256,7 @@ func (a *App) runOpenAI(c *aiChat, text string) error {
 	a.ai.mu.Lock()
 	if c.running {
 		a.ai.mu.Unlock()
-		return errors.New("AI masih bekerja; tunggu atau tekan Stop")
+		return errors.New(L("AI masih bekerja; tunggu atau tekan Stop", "AI is still working; wait or press Stop"))
 	}
 	if len(c.history) == 0 {
 		c.history = []map[string]any{{"role": "system", "content": aiSystemPrompt(c.context)}}
@@ -365,13 +365,13 @@ func oaChat(ctx context.Context, base, key, model string, msgs []map[string]any)
 		} `json:"error"`
 	}
 	if err := json.Unmarshal(data, &r); err != nil {
-		return nil, nil, fmt.Errorf("respons tidak dikenali: %s", snippet(data))
+		return nil, nil, fmt.Errorf(L("respons tidak dikenali: %s", "unrecognized response: %s"), snippet(data))
 	}
 	if r.Error != nil {
 		return nil, nil, errors.New(r.Error.Message)
 	}
 	if len(r.Choices) == 0 || r.Choices[0].Message == nil {
-		return nil, nil, fmt.Errorf("respons kosong: %s", snippet(data))
+		return nil, nil, fmt.Errorf(L("respons kosong: %s", "empty response: %s"), snippet(data))
 	}
 	m := r.Choices[0].Message
 	out := map[string]any{"role": "assistant", "content": m["content"]}

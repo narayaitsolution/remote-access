@@ -8,6 +8,7 @@ import { Pane } from './pane';
 import { hooks, saveSettingsSoon, store } from './state';
 import type { Sidebar } from './sidebar';
 import { h, isModalOpen } from './ui';
+import { t } from './i18n';
 
 type Node = Leaf | Split;
 interface Leaf { kind: 'leaf'; pane: Pane }
@@ -39,7 +40,7 @@ export class Layout {
   el: HTMLElement;
   private companionBtn = h('button', {
     class: 'ai-toggle companion-toggle',
-    title: 'AI Companion: saran kode di editor (seperti Copilot), diminta dengan Alt+\\. Klik untuk aktifkan/matikan, klik kanan untuk memilih provider & model.',
+    title: t('AI Companion: saran kode di editor (seperti Copilot), diminta dengan Alt+\\. Klik untuk aktifkan/matikan, klik kanan untuk memilih provider & model.'),
     onclick: () => toggleCompanion(),
     oncontextmenu: (e: MouseEvent) => { e.preventDefault(); companionSettings(); },
   }, 'AI Companion');
@@ -50,15 +51,15 @@ export class Layout {
     const k = store.settings.keys;
     this.el = h('div', { class: 'layout' },
       h('div', { class: 'topbar' },
-        btn(icons.sidebar, `Tampilkan/sembunyikan sidebar (${k.toggle_sidebar})`, () => this.toggleSidebar()),
+        btn(icons.sidebar, t('Tampilkan/sembunyikan sidebar ({0})', k.toggle_sidebar), () => this.toggleSidebar()),
         this.tabBar,
-        btn(icons.plus, `Tab baru (${k.new_tab})`, () => this.newTab()),
-        btn(icons.splitV, `Split vertikal (${k.split_vertical})`, () => this.split('row')),
-        btn(icons.splitH, `Split horizontal (${k.split_horizontal})`, () => this.split('col')),
-        btn(icons.tools, 'Program pendukung (cek & pasang)', () => hooks.showSetup('')),
-        btn(icons.info, 'Informasi: versi, fitur, dan cek update', () => showAbout()),
+        btn(icons.plus, t('Tab baru ({0})', k.new_tab), () => this.newTab()),
+        btn(icons.splitV, t('Split vertikal ({0})', k.split_vertical), () => this.split('row')),
+        btn(icons.splitH, t('Split horizontal ({0})', k.split_horizontal), () => this.split('col')),
+        btn(icons.tools, t('Program pendukung (cek & pasang)'), () => hooks.showSetup('')),
+        btn(icons.info, t('Informasi: versi, fitur, bahasa, donasi, dan cek update'), () => showAbout()),
         this.companionBtn,
-        h('button', { class: 'ai-toggle', title: `AI Sidebar: asisten AI di samping terminal (${k.toggle_ai})`, onclick: () => hooks.toggleAI() }, 'AI Sidebar')),
+        h('button', { class: 'ai-toggle', title: t('AI Sidebar: asisten AI di samping terminal ({0})', k.toggle_ai), onclick: () => hooks.toggleAI() }, 'AI Sidebar')),
       this.area);
 
     // Editor panes share the connection of the terminal they came from.
@@ -170,18 +171,18 @@ export class Layout {
 
   private renderTabs() {
     this.tabBar.innerHTML = '';
-    for (const t of this.tabs) {
-      const panes = t.panes();
-      const p = t.active;
+    for (const tb of this.tabs) {
+      const panes = tb.panes();
+      const p = tb.active;
       const dot = h('span', { class: 'dot st-' + p.state });
       const label = h('span', { class: 'tab-label', title: p.editor?.path ?? '' }, p.title + (panes.length > 1 ? ` (${panes.length})` : ''));
-      const close = h('span', { class: 'tab-close', html: icons.x, title: 'Tutup tab' });
-      close.addEventListener('click', e => { e.stopPropagation(); this.closeTab(t); });
-      t.btn.className = 'tab' + (t === this.cur ? ' active' : '');
-      t.btn.replaceChildren(dot, label, close);
-      t.btn.onmousedown = e => { if (e.button === 1) { e.preventDefault(); this.closeTab(t); } };
-      t.btn.onclick = () => this.selectTab(t);
-      this.tabBar.append(t.btn);
+      const close = h('span', { class: 'tab-close', html: icons.x, title: t('Tutup tab') });
+      close.addEventListener('click', e => { e.stopPropagation(); this.closeTab(tb); });
+      tb.btn.className = 'tab' + (tb === this.cur ? ' active' : '');
+      tb.btn.replaceChildren(dot, label, close);
+      tb.btn.onmousedown = e => { if (e.button === 1) { e.preventDefault(); this.closeTab(tb); } };
+      tb.btn.onclick = () => this.selectTab(tb);
+      this.tabBar.append(tb.btn);
     }
   }
 

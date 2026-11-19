@@ -207,7 +207,7 @@ func (a *App) AIComplete(r CompletionRequest) (string, error) {
 	case r.Provider == "codex":
 		out, err = completeCodex(ctx, r.Model, prompt)
 	default:
-		return "", errors.New("provider tidak dikenal")
+		return "", errors.New(L("provider tidak dikenal", "unknown provider"))
 	}
 	if ctx.Err() == context.Canceled {
 		return "", nil
@@ -308,7 +308,7 @@ func (a *App) completeOpenAI(ctx context.Context, id, model, prompt string) (str
 		} `json:"error"`
 	}
 	if err := json.Unmarshal(data, &r); err != nil {
-		return "", fmt.Errorf("respons tidak dikenali: %s", snippet(data))
+		return "", fmt.Errorf(L("respons tidak dikenali: %s", "unrecognized response: %s"), snippet(data))
 	}
 	if r.Error != nil {
 		return "", errors.New(r.Error.Message)
@@ -323,7 +323,7 @@ func (a *App) completeOpenAI(ctx context.Context, id, model, prompt string) (str
 func completeClaude(ctx context.Context, model, prompt string) (string, error) {
 	path, err := exec.LookPath("claude")
 	if err != nil {
-		return "", errors.New("Claude Code (claude) tidak ditemukan di PATH")
+		return "", errors.New(L("Claude Code (claude) tidak ditemukan di PATH", "Claude Code (claude) was not found in PATH"))
 	}
 	if model == "" {
 		model = "haiku"

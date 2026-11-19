@@ -52,8 +52,10 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.dir = configDir()
 	a.cfgPath = filepath.Join(a.dir, configFileName)
+	setUILang("") // for messages while loading the config
 	cfg, err := loadConfig(a.cfgPath)
 	a.cfg = cfg
+	setUILang(cfg.Settings.Language)
 	if err != nil {
 		a.cfgErr = err.Error()
 	}
@@ -89,7 +91,7 @@ func (a *App) session(id string) (*Session, error) {
 	defer a.sessMu.Unlock()
 	s, ok := a.sessions[id]
 	if !ok {
-		return nil, errors.New("sesi tidak ditemukan")
+		return nil, errors.New(L("sesi tidak ditemukan", "session not found"))
 	}
 	return s, nil
 }
@@ -101,6 +103,7 @@ type AppState struct {
 	Profiles   []ProfileView `json:"profiles"`
 	ConfigPath string        `json:"configPath"`
 	ConfigErr  string        `json:"configError"`
+	Lang       string        `json:"lang"` // language in use: "id" or "en"
 }
 
 func (a *App) GetState() AppState {
@@ -110,13 +113,13 @@ func (a *App) GetState() AppState {
 	for _, p := range a.cfg.Profiles {
 		views = append(views, p.view())
 	}
-	return AppState{Settings: a.cfg.Settings, Profiles: views, ConfigPath: a.cfgPath, ConfigErr: a.cfgErr}
+	return AppState{Settings: a.cfg.Settings, Profiles: views, ConfigPath: a.cfgPath, ConfigErr: a.cfgErr, Lang: curLang()}
 }
 
 func (a *App) SaveProfile(in ProfileInput) (ProfileView, error) {
 	in.Name, in.Host, in.User = strings.TrimSpace(in.Name), strings.TrimSpace(in.Host), strings.TrimSpace(in.User)
 	if in.Host == "" || in.User == "" {
-		return ProfileView{}, errors.New("host dan user wajib diisi")
+		return ProfileView{}, errors.New(L("host dan user wajib diisi", "host and user are required"))
 	}
 	if in.Port <= 0 || in.Port > 65535 {
 		in.Port = 22
@@ -136,7 +139,7 @@ func (a *App) SaveProfile(in ProfileInput) (ProfileView, error) {
 	if in.AuthType == "key" {
 		p.AuthType, p.KeyPath = "key", strings.TrimSpace(in.KeyPath)
 		if p.KeyPath == "" {
-			return ProfileView{}, errors.New("pilih file private key")
+			return ProfileView{}, errors.New(L("pilih file private key", "choose a private key file"))
 		}
 		// Reject unreadable / wrong-format files now; an encrypted key is fine.
 		if _, err := loadKey(p.KeyPath, ""); err != nil && !isAuthError(err) {
@@ -210,7 +213,7 @@ func (a *App) profile(id string) (Profile, error) {
 			return p, nil
 		}
 	}
-	return Profile{}, errors.New("profil tidak ditemukan")
+	return Profile{}, errors.New(L("profil tidak ditemukan", "profile not found"))
 }
 
 // PickKeyFile lets the user choose a private key file (starts in ~/.ssh).
@@ -220,7 +223,7 @@ func (a *App) PickKeyFile() (string, error) {
 		dir = filepath.Join(home, ".ssh")
 	}
 	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
-		Title: "Pilih private key SSH", DefaultDirectory: dir})
+		Title: L("Pilih private key SSH", "Choose SSH private key"), DefaultDirectory: dir})
 }
 
 // ---------- terminal sessions ----------
@@ -429,13 +432,13 @@ func (a *App) UploadDialog(id, remoteDir string, folder bool) error {
 	}
 	var paths []string
 	if folder {
-		p, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{Title: "Pilih folder untuk di-upload"})
+		p, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{Title: L("Pilih folder untuk di-upload", "Choose a folder to upload")})
 		if err != nil || p == "" {
 			return err
 		}
 		paths = []string{p}
 	} else {
-		paths, err = runtime.OpenMultipleFilesDialog(a.ctx, runtime.OpenDialogOptions{Title: "Pilih file untuk di-upload"})
+		paths, err = runtime.OpenMultipleFilesDialog(a.ctx, runtime.OpenDialogOptions{Title: L("Pilih file untuk di-upload", "Choose files to upload")})
 		if err != nil {
 			return err
 		}
@@ -451,7 +454,7 @@ func (a *App) DownloadDialog(id string, remotePaths []string) error {
 		return err
 	}
 	dir, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
-		Title: "Simpan ke folder", DefaultDirectory: a.settings().DownloadDir})
+		Title: L("Simpan ke folder", "Save to folder"), DefaultDirectory: a.settings().DownloadDir})
 	if err != nil || dir == "" {
 		return err
 	}
@@ -490,7 +493,7 @@ func (a *App) CaptureTmux(id string, lines int) (string, error) {
 	tty := s.tty
 	s.mu.Unlock()
 	if tty == "" {
-		return "", errors.New("tty belum diketahui")
+		return "", errors.New(L("tty belum diketahui", "tty not known yet"))
 	}
 	if lines <= 0 || lines > 5000 {
 		lines = 2000
@@ -498,7 +501,7 @@ func (a *App) CaptureTmux(id string, lines int) (string, error) {
 	cmd := fmt.Sprintf(`p=$(tmux display-message -p -c %s '#{pane_id}' 2>/dev/null) && [ -n "$p" ] && tmux capture-pane -p -J -S -%d -t "$p"`, shellQuote(tty), lines)
 	out, err := s.runCmd(cmd, 10*time.Second)
 	if err != nil {
-		return "", errors.New("bukan di dalam tmux")
+		return "", errors.New(L("bukan di dalam tmux", "not inside tmux"))
 	}
 	return out, nil
 }
@@ -530,7 +533,7 @@ func (a *App) ReadFileText(id, path string, maxBytes int) (string, error) {
 		buf = buf[:maxBytes]
 	}
 	if bytes.IndexByte(buf, 0) >= 0 {
-		return "", errors.New("file biner, tidak bisa dibaca sebagai teks")
+		return "", errors.New(L("file biner, tidak bisa dibaca sebagai teks", "binary file, cannot be read as text"))
 	}
 	text := string(buf)
 	if truncated {
@@ -600,7 +603,7 @@ func (a *App) OpenFileForEdit(id, path string) (EditFile, error) {
 func (a *App) SaveEditedFile(id, path, content, expectStamp string, force bool) (string, error) {
 	s, err := a.session(id)
 	if err != nil {
-		return "", errors.New("terminal untuk file ini sudah ditutup; buka lagi koneksinya")
+		return "", errors.New(L("terminal untuk file ini sudah ditutup; buka lagi koneksinya", "the terminal for this file was closed; open the connection again"))
 	}
 	return s.saveFromEdit(path, content, expectStamp, force)
 }
@@ -619,18 +622,36 @@ func (a *App) beforeClose(ctx context.Context) bool {
 	if n == 0 {
 		return false
 	}
+	discard, cancel := L("Tutup tanpa menyimpan", "Close without saving"), L("Batal", "Cancel")
 	res, err := runtime.MessageDialog(ctx, runtime.MessageDialogOptions{
 		Type:          runtime.QuestionDialog,
-		Title:         "Perubahan belum disimpan",
-		Message:       fmt.Sprintf("Ada %d file yang belum disimpan. Tutup aplikasi dan buang perubahannya?", n),
-		Buttons:       []string{"Tutup tanpa menyimpan", "Batal"},
-		DefaultButton: "Batal",
-		CancelButton:  "Batal",
+		Title:         L("Perubahan belum disimpan", "Unsaved changes"),
+		Message:       fmt.Sprintf(L("Ada %d file yang belum disimpan. Tutup aplikasi dan buang perubahannya?", "%d file(s) have unsaved changes. Close the app and discard them?"), n),
+		Buttons:       []string{discard, cancel},
+		DefaultButton: cancel,
+		CancelButton:  cancel,
 	})
 	if err != nil {
 		return false
 	}
-	return res != "Tutup tanpa menyimpan" && res != "Yes" && res != "Ok"
+	return res != discard && res != "Yes" && res != "Ok"
+}
+
+// RestartApp starts a new instance of the app and closes this one (used to
+// apply a new UI language). The UI checks for unsaved files first.
+func (a *App) RestartApp() error {
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command(exe, os.Args[1:]...)
+	cmd.Dir = filepath.Dir(exe)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	a.SetUnsavedCount(0)
+	runtime.Quit(a.ctx)
+	return nil
 }
 
 // ReadFileBase64 returns a remote file base64-encoded, for the PDF and image viewers.

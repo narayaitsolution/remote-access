@@ -1,6 +1,7 @@
 // AI assistant panel. The AI CLI (Claude Code / Codex) runs locally with the
 // user's own login; its tool calls arrive here, are shown to the user, need
 // approval when they change something, and are executed in the visible terminal.
+import { t } from './i18n';
 import {
   AIProviders, AIReset, DeleteAIProvider, ListAIProviders, SaveAIProvider, TestAIProvider, AISend, AIStop, AIToolResult, CaptureTmux, Info, ListDir, ReadFileText, RunHidden, WriteFileText,
 } from '../wailsjs/go/main/App';
@@ -49,6 +50,7 @@ const TOOL_LABEL: Record<string, string> = {
   wait_for_screen: 'Memantau layar', list_dir: 'Melihat folder', read_file: 'Membaca file', write_file: 'Menulis file',
   open_file: 'Membuka file di editor', edit_file: 'Mengedit file', open_terminal: 'Membuka terminal baru', use_terminal: 'Berpindah terminal',
 };
+const toolLabel = (name: string) => TOOL_LABEL[name] ? t(TOOL_LABEL[name]) : name;
 const SHELLS = new Set(['bash', 'sh', 'dash', 'zsh', 'fish', 'ksh', 'tcsh', 'csh', 'ash', '-bash', '-sh', '-zsh']);
 
 let chatSeq = 0;
@@ -71,42 +73,42 @@ export class AIPanel {
   private approvals = new Map<string, (ok: boolean | 'all') => void>();
 
   constructor() {
-    this.providerSel = h('select', { class: 'ai-select', title: 'Penyedia AI' });
+    this.providerSel = h('select', { class: 'ai-select', title: t('Penyedia AI') });
     this.modelSel = h('select', { class: 'ai-select', title: 'Model' });
     this.providerSel.addEventListener('change', () => this.onProviderChange());
     this.modelSel.addEventListener('change', () => this.onModelChange());
     this.target = h('div', { class: 'ai-target' });
     this.usageEl = h('div', { class: 'ai-usage' });
     this.list = h('div', { class: 'ai-list' });
-    this.input = h('textarea', { class: 'ai-input', rows: 3, placeholder: 'Tanya apa saja, atau minta bantuan di server…  (Enter kirim · Shift+Enter baris baru)' });
+    this.input = h('textarea', { class: 'ai-input', rows: 3, placeholder: t('Tanya apa saja, atau minta bantuan di server…  (Enter kirim · Shift+Enter baris baru)') });
     this.input.addEventListener('keydown', e => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.send(); }
     });
-    this.sendBtn = h('button', { class: 'btn primary ai-send', onclick: () => this.busy() ? this.stop() : this.send() }, 'Kirim');
+    this.sendBtn = h('button', { class: 'btn primary ai-send', onclick: () => this.busy() ? this.stop() : this.send() }, t('Kirim'));
     this.agentChk = h('input', { type: 'checkbox' });
     this.agentChk.addEventListener('change', () => {
       store.settings.aiAgentMode = this.agentChk.checked;
       saveSettingsSoon();
       toast(this.agentChk.checked
-        ? 'Mode Agen aktif: AI mengerjakan tugas langsung di layar dan tindakan disetujui otomatis (kecuali yang berbahaya).'
-        : 'Mode Agen mati: AI kembali minta izin dan tidak menyentuh layar tanpa diminta.', 'success');
+        ? t('Mode Agen aktif: AI mengerjakan tugas langsung di layar dan tindakan disetujui otomatis (kecuali yang berbahaya).')
+        : t('Mode Agen mati: AI kembali minta izin dan tidak menyentuh layar tanpa diminta.'), 'success');
       this.render();
     });
-    const newBtn = h('button', { class: 'btn small', title: 'Mulai percakapan baru', onclick: () => this.newChat() }, 'Chat baru');
-    const closeBtn = h('button', { class: 'icon-btn', title: 'Tutup panel AI (Ctrl+Shift+A)', html: '&times;', onclick: () => this.toggle(false) });
+    const newBtn = h('button', { class: 'btn small', title: t('Mulai percakapan baru'), onclick: () => this.newChat() }, t('Chat baru'));
+    const closeBtn = h('button', { class: 'icon-btn', title: t('Tutup panel AI (Ctrl+Shift+A)'), html: '&times;', onclick: () => this.toggle(false) });
     const resizer = h('div', { class: 'ai-resizer' });
     this.el = h('div', { class: 'ai-panel' },
       resizer,
       h('div', { class: 'ai-head' },
         h('span', { class: 'ai-title' }, 'AI'), this.providerSel, this.modelSel, h('span', { class: 'ai-spacer' }),
-        h('button', { class: 'icon-btn', title: 'Kelola provider AI (OpenAI-compatible: URL + API key)', html: '&#9881;', onclick: () => this.manageProviders() }),
+        h('button', { class: 'icon-btn', title: t('Kelola provider AI (OpenAI-compatible: URL + API key)'), html: '&#9881;', onclick: () => this.manageProviders() }),
         newBtn, closeBtn),
       this.target, this.installHint, this.usageEl, this.list,
       h('div', { class: 'ai-foot' },
         this.input,
         h('div', { class: 'ai-foot-row' },
           h('div', { class: 'ai-autos' },
-            h('label', { class: 'ai-auto ai-agent', title: 'Mode Agen: AI mengerjakan tugas langsung di layar utama (mencari, membuka & mengedit file, menguji sampai bebas error, lalu melapor). Tindakan disetujui otomatis, kecuali yang berbahaya (hapus data, restart service, firewall, dll.).' }, this.agentChk, 'Mode Agen')),
+            h('label', { class: 'ai-auto ai-agent', title: t('Mode Agen: AI mengerjakan tugas langsung di layar utama (mencari, membuka & mengedit file, menguji sampai bebas error, lalu melapor). Tindakan disetujui otomatis, kecuali yang berbahaya (hapus data, restart service, firewall, dll.).') }, this.agentChk, t('Mode Agen'))),
           this.sendBtn)));
     this.setupResize(resizer);
     this.applyVisibility();
@@ -124,7 +126,7 @@ export class AIPanel {
     invalidateCompanionProviders();
     const s = store.settings;
     s.aiModels = s.aiModels || {};
-    const opt = (p: ProviderInfo) => h('option', { value: p.id, disabled: !p.installed }, p.name + (p.installed ? '' : ' (tidak terpasang)'));
+    const opt = (p: ProviderInfo) => h('option', { value: p.id, disabled: !p.installed }, p.name + (p.installed ? '' : t(' (tidak terpasang)')));
     const cli = this.providers.filter(p => p.kind !== 'openai');
     const api = this.providers.filter(p => p.kind === 'openai');
     this.providerSel.replaceChildren(...cli.map(opt),
@@ -133,8 +135,8 @@ export class AIPanel {
     if (usable) this.providerSel.value = usable.id;
     const missing = cli.filter(p => !p.installed);
     this.installHint.replaceChildren(...(missing.length ? [
-      h('span', {}, `${missing.map(p => p.name).join(' & ')} belum terpasang. `),
-      h('button', { class: 'link', onclick: () => hooks.showSetup(missing[0].id) }, 'Pasang…')] : []));
+      h('span', {}, t('{0} belum terpasang. ', missing.map(p => p.name).join(' & '))),
+      h('button', { class: 'link', onclick: () => hooks.showSetup(missing[0].id) }, t('Pasang…'))] : []));
     this.installHint.classList.toggle('hidden', !missing.length);
     this.fillModels();
     this.render();
@@ -147,18 +149,18 @@ export class AIPanel {
     const refresh = async () => {
       const provs = await ListAIProviders();
       listEl.replaceChildren(...(provs.length ? provs.map(p => h('div', { class: 'prov-row' },
-        h('div', { class: 'prov-text' }, h('b', {}, p.name), h('small', {}, p.baseUrl + (p.hasKey ? ' · API key tersimpan' : ' · tanpa API key'))),
+        h('div', { class: 'prov-text' }, h('b', {}, p.name), h('small', {}, p.baseUrl + (p.hasKey ? t(' · API key tersimpan') : t(' · tanpa API key')))),
         h('button', { class: 'btn small', onclick: async () => { if (await editProvider(p)) { await refresh(); } } }, 'Edit'),
         h('button', { class: 'btn small danger', onclick: async () => {
-          if (await confirmDialog('Hapus provider', `Hapus "${p.name}"?`, 'Hapus', true)) { await DeleteAIProvider(p.id); await refresh(); }
-        } }, 'Hapus'))) : [h('div', { class: 'muted' }, 'Belum ada provider tambahan.')]));
+          if (await confirmDialog(t('Hapus provider'), t('Hapus "{0}"?', p.name), t('Hapus'), true)) { await DeleteAIProvider(p.id); await refresh(); }
+        } }, t('Hapus')))) : [h('div', { class: 'muted' }, t('Belum ada provider tambahan.'))]));
     };
     await refresh();
     const body = h('div', { class: 'form' },
-      h('div', { class: 'modal-text' }, 'Tambahkan layanan AI yang memakai API OpenAI (chat/completions): OpenAI, OpenRouter, Groq, DeepSeek, Together, Mistral, Ollama/LM Studio lokal, dll. Modelnya akan muncul di pilihan model panel AI.'),
+      h('div', { class: 'modal-text' }, t('Tambahkan layanan AI yang memakai API OpenAI (chat/completions): OpenAI, OpenRouter, Groq, DeepSeek, Together, Mistral, Ollama/LM Studio lokal, dll. Modelnya akan muncul di pilihan model panel AI.')),
       listEl,
-      h('button', { class: 'btn', onclick: async () => { if (await editProvider(null)) await refresh(); } }, '+ Tambah provider'));
-    await openModal('Provider AI', body, [{ label: 'Tutup', value: 'close', primary: true }]);
+      h('button', { class: 'btn', onclick: async () => { if (await editProvider(null)) await refresh(); } }, t('+ Tambah provider')));
+    await openModal(t('Provider AI'), body, [{ label: t('Tutup'), value: 'close', primary: true }]);
     await this.init();
   }
 
@@ -208,7 +210,7 @@ export class AIPanel {
     if (chosen && !models.includes(chosen)) models.unshift(chosen);
     this.modelSel.replaceChildren(
       ...models.map(m => h('option', { value: m }, m || '(default)')),
-      h('option', { value: '__custom' }, 'Model lain…'));
+      h('option', { value: '__custom' }, t('Model lain…')));
     this.modelSel.value = chosen;
   }
 
@@ -218,7 +220,7 @@ export class AIPanel {
     this.fillModels();
     const c = this.chat();
     if (c && c.items.length && c.provider !== this.provider()) {
-      this.note(c, `Penyedia diganti ke ${this.providerName()}. Percakapan baru dimulai untuk penyedia ini.`);
+      this.note(c, t('Penyedia diganti ke {0}. Percakapan baru dimulai untuk penyedia ini.', this.providerName()));
     }
     this.render();
   }
@@ -226,7 +228,7 @@ export class AIPanel {
   private async onModelChange() {
     let m = this.modelSel.value;
     if (m === '__custom') {
-      const v = await promptText('Model lain', `Nama model untuk ${this.providerName()}`);
+      const v = await promptText(t('Model lain'), t('Nama model untuk {0}', this.providerName()));
       if (!v) { this.fillModels(); return; }
       m = v;
     }
@@ -262,8 +264,8 @@ export class AIPanel {
     EventsOn('ai:line:' + c.id, (line: string) => this.onLine(c, line));
     EventsOn('ai:state:' + c.id, (st: { running: boolean; error?: string; stopped?: boolean }) => {
       if (!st.running) {
-        if (st.error) this.note(c, 'AI berhenti: ' + st.error, true);
-        if (st.stopped) this.note(c, 'Dihentikan.');
+        if (st.error) this.note(c, t('AI berhenti: ') + st.error, true);
+        if (st.stopped) this.note(c, t('Dihentikan.'));
         this.setBusy(c, false);
       }
     });
@@ -275,7 +277,7 @@ export class AIPanel {
     c.busy = busy;
     c.pane.el.classList.toggle('ai-active', busy);
     if (!busy) this.paneStatus(c, '');
-    else this.paneStatus(c, 'AI sedang bekerja…');
+    else this.paneStatus(c, t('AI sedang bekerja…'));
     hooks.paneChanged(c.pane);
     if (c === this.chat()) this.render();
   }
@@ -316,7 +318,7 @@ export class AIPanel {
     const p = this.pane;
     if (!p) return;
     const c = this.chat(true)!;
-    if (c.busy && this.provider() !== 'claude') { toast('AI masih bekerja; tunggu atau tekan Stop'); return; }
+    if (c.busy && this.provider() !== 'claude') { toast(t('AI masih bekerja; tunggu atau tekan Stop')); return; }
     if (c.provider !== this.provider()) { AIReset(c.id); c.provider = this.provider(); }
     this.input.value = '';
     c.items.push({ kind: 'user', text });
@@ -342,7 +344,7 @@ export class AIPanel {
     try {
       await AISend(c.id, c.provider, store.settings.aiModels[c.provider] || this.modelSel.value || '', live + text, context);
     } catch (e) {
-      this.note(c, 'Gagal mengirim: ' + String(e), true);
+      this.note(c, t('Gagal mengirim: ') + String(e), true);
       this.setBusy(c, false);
     }
   }
@@ -422,8 +424,8 @@ export class AIPanel {
       case 'item.completed': {
         const it = ev.item || {};
         if (it.type === 'agent_message' && it.text) c.items.push({ kind: 'text', text: it.text });
-        else if (it.type === 'command_execution') this.note(c, `Codex menjalankan perintah di komputer lokal (bukan server): ${it.command}`, true);
-        else if (it.type === 'mcp_tool_call' && it.status === 'failed' && it.error?.message) this.note(c, 'Alat gagal: ' + it.error.message, true);
+        else if (it.type === 'command_execution') this.note(c, t('Codex menjalankan perintah di komputer lokal (bukan server): {0}', it.command), true);
+        else if (it.type === 'mcp_tool_call' && it.status === 'failed' && it.error?.message) this.note(c, t('Alat gagal: ') + it.error.message, true);
         else if (it.type === 'error' && it.message) this.note(c, it.message, true);
         break;
       }
@@ -462,14 +464,14 @@ export class AIPanel {
   private async onTool(ev: { reqId: string; chatId: string; name: string; args: any }) {
     const c = this.byId.get(ev.chatId);
     const reply = (text: string, isError = false) => AIToolResult(ev.reqId, isError, text);
-    if (!c) { reply('Chat tidak ditemukan', true); return; }
+    if (!c) { reply(t('Chat tidak ditemukan'), true); return; }
     const args = typeof ev.args === 'string' ? JSON.parse(ev.args || '{}') : (ev.args || {});
     const item: Extract<Item, { kind: 'tool' }> = { kind: 'tool', reqId: ev.reqId, name: ev.name, args, status: 'running', output: '', open: false };
     c.items.push(item);
     if (!c.work.connected && c.work !== c.pane) c.work = c.pane;
     const p = c.work;
     if (!p.connected || !p.term) {
-      item.status = 'error'; item.output = 'Terminal tidak terhubung';
+      item.status = 'error'; item.output = t('Terminal tidak terhubung');
       this.refresh(c);
       reply('The terminal is not connected to the server right now.', true);
       return;
@@ -495,7 +497,7 @@ export class AIPanel {
       }
       item.status = 'running';
     }
-    this.paneStatus(c, `AI: ${TOOL_LABEL[ev.name] || ev.name}${ev.name === 'run_command' ? ' — ' + String(args.command).slice(0, 80) : ''}`);
+    this.paneStatus(c, `AI: ${toolLabel(ev.name)}${ev.name === 'run_command' ? ' — ' + String(args.command).slice(0, 80) : ''}`);
     this.refresh(c);
     try {
       if (agent && ['read_screen', 'run_command', 'send_keys', 'wait_for_screen'].includes(ev.name)) hooks.revealPane(p);
@@ -508,7 +510,7 @@ export class AIPanel {
       item.output = String((e as any)?.message ?? e);
       reply(item.output, true);
     }
-    this.paneStatus(c, c.busy ? 'AI sedang bekerja…' : '');
+    this.paneStatus(c, c.busy ? t('AI sedang bekerja…') : '');
     this.refresh(c);
   }
 
@@ -518,15 +520,15 @@ export class AIPanel {
   private askApproval(c: Chat, item: Extract<Item, { kind: 'tool' }>, danger = ''): Promise<boolean | 'all'> {
     return new Promise(resolve => {
       const bar = h('div', { class: 'ai-approve-bar' + (danger ? ' danger' : '') },
-        h('div', { class: 'ai-approve-title' }, danger ? `⚠ Tindakan berisiko (${danger}). Izinkan?` : `AI meminta izin: ${TOOL_LABEL[item.name] || item.name}`),
+        h('div', { class: 'ai-approve-title' }, danger ? t('⚠ Tindakan berisiko ({0}). Izinkan?', danger) : t('AI meminta izin: {0}', toolLabel(item.name))),
         h('pre', { class: 'ai-approve-cmd' }, summarize(item.name, item.args, 600)),
         h('div', { class: 'ai-approve-btns' },
-          h('button', { class: 'btn', onclick: () => done(false) }, 'Tolak'),
-          danger ? null : h('button', { class: 'btn', onclick: () => done('all') }, READ_TOOLS.has(item.name) ? 'Izinkan semua baca' : 'Izinkan semua perubahan'),
-          h('button', { class: 'btn primary' + (danger ? ' danger' : ''), onclick: () => done(true) }, 'Izinkan')));
+          h('button', { class: 'btn', onclick: () => done(false) }, t('Tolak')),
+          danger ? null : h('button', { class: 'btn', onclick: () => done('all') }, READ_TOOLS.has(item.name) ? t('Izinkan semua baca') : t('Izinkan semua perubahan')),
+          h('button', { class: 'btn primary' + (danger ? ' danger' : ''), onclick: () => done(true) }, t('Izinkan'))));
       if (danger) hooks.revealPane(c.work);
       c.work.el.append(bar);
-      this.paneStatus(c, 'AI menunggu izin Anda');
+      this.paneStatus(c, t('AI menunggu izin Anda'));
       const done = (v: boolean | 'all') => {
         this.approvals.delete(item.reqId);
         bar.remove();
@@ -646,18 +648,18 @@ export class AIPanel {
     const p = this.pane;
     const c = this.chat();
     this.target.textContent = p?.profile
-      ? `Terminal: ${p.title} (${p.profile.user}@${p.profile.host})${p.connected ? '' : ' — tidak terhubung'}`
-      : 'Mode chat — terminal belum terhubung ke server.';
-    if (c && c.work !== c.pane && c.work.connected) this.target.textContent += ` · AI bekerja di T${c.terminals.indexOf(c.work) + 1} (${c.work.title})`;
+      ? `Terminal: ${p.title} (${p.profile.user}@${p.profile.host})${p.connected ? '' : t(' — tidak terhubung')}`
+      : t('Mode chat — terminal belum terhubung ke server.');
+    if (c && c.work !== c.pane && c.work.connected) this.target.textContent += t(' · AI bekerja di {0} ({1})', `T${c.terminals.indexOf(c.work) + 1}`, c.work.title);
     this.agentChk.checked = !!store.settings.aiAgentMode;
     this.el.classList.toggle('agent-mode', !!store.settings.aiAgentMode);
-    this.sendBtn.textContent = c?.busy ? 'Stop' : 'Kirim';
+    this.sendBtn.textContent = c?.busy ? 'Stop' : t('Kirim');
     this.sendBtn.classList.toggle('danger', !!c?.busy);
     this.renderUsage(c);
 
     const nodes: HTMLElement[] = [];
     if (!c || c.items.length === 0) {
-      nodes.push(h('div', { class: 'ai-empty', html: `
+      nodes.push(h('div', { class: 'ai-empty', html: t(`
         <b>Asisten AI</b><br>
         Tanyakan apa saja seperti chat biasa. Jika permintaan Anda butuh server, AI akan <b>meminta izin</b> dulu sebelum
         membaca layar/file, menjalankan perintah (terlihat langsung di terminal), menulis file, atau mengetik ke aplikasi
@@ -671,10 +673,10 @@ export class AIPanel {
         mencari & membuka file, mengedit (perubahan disorot di editor), menguji sampai bebas error, lalu melapor.
         Tindakan disetujui otomatis kecuali yang berisiko (hapus data, restart service, firewall…). Jika layar sedang
         dipakai program lain, AI membuka terminal baru di tab baru.<br>
-        • <i>"ubah fungsi login di app.php supaya mencatat IP pengguna"</i>` }));
+        • <i>"ubah fungsi login di app.php supaya mencatat IP pengguna"</i>`) }));
     } else {
       for (const it of c.items) nodes.push(this.renderItem(it));
-      if (c.busy) nodes.push(h('div', { class: 'ai-thinking' }, h('span', { class: 'ai-dots' }), 'AI sedang bekerja…'));
+      if (c.busy) nodes.push(h('div', { class: 'ai-thinking' }, h('span', { class: 'ai-dots' }), t('AI sedang bekerja…')));
     }
     const atBottom = this.list.scrollHeight - this.list.scrollTop - this.list.clientHeight < 40;
     this.list.replaceChildren(...nodes);
@@ -691,16 +693,16 @@ export class AIPanel {
         const cls = pct >= 90 ? 'bad' : pct >= 75 ? 'warn' : '';
         return `<span class="${cls}" title="Reset ${new Date(w.resetsAt * 1000).toLocaleString()}">${label} ${pct}%</span>`;
       };
-      const l5 = lim('five_hour', 'Limit 5 jam'), l7 = lim('seven_day', '7 hari');
-      parts.push(l5 || l7 ? [l5, l7].filter(Boolean).join(' · ') : '<span class="muted">Limit langganan muncul setelah pesan pertama</span>');
+      const l5 = lim('five_hour', t('Limit 5 jam')), l7 = lim('seven_day', t('7 hari'));
+      parts.push(l5 || l7 ? [l5, l7].filter(Boolean).join(' · ') : `<span class="muted">${t('Limit langganan muncul setelah pesan pertama')}</span>`);
     } else if (this.provider() === 'codex') {
-      parts.push('<span class="muted">Codex tidak melaporkan sisa limit</span>');
+      parts.push(`<span class="muted">${t('Codex tidak melaporkan sisa limit')}</span>`);
     } else {
-      parts.push('<span class="muted">Provider API: biaya/limit dilihat di dashboard penyedia</span>');
+      parts.push(`<span class="muted">${t('Provider API: biaya/limit dilihat di dashboard penyedia')}</span>`);
     }
     if (c && c.usage.turns) {
       const k = (n: number) => n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : String(n);
-      let s = `Chat ini: ${k(c.usage.input)} masuk${c.usage.cached ? ` (+${k(c.usage.cached)} cache)` : ''} · ${k(c.usage.output)} keluar`;
+      let s = t('Chat ini: {0} masuk{1} · {2} keluar', k(c.usage.input), c.usage.cached ? ` (+${k(c.usage.cached)} cache)` : '', k(c.usage.output));
       if (c.provider === 'claude' && c.usage.cost) s += ` · ≈$${c.usage.cost.toFixed(3)}`;
       parts.push(s);
     }
@@ -714,23 +716,23 @@ export class AIPanel {
       case 'note': return h('div', { class: 'ai-note' + (it.error ? ' error' : '') }, it.text);
       case 'tool': {
         const statusText: Record<ToolStatus, string> = {
-          approval: 'menunggu izin', running: 'berjalan…', done: 'selesai', denied: 'ditolak', error: 'gagal', cancelled: 'dibatalkan',
+          approval: t('menunggu izin'), running: t('berjalan…'), done: t('selesai'), denied: t('ditolak'), error: t('gagal'), cancelled: t('dibatalkan'),
         };
         const head = h('div', { class: 'ai-tool-head' },
-          h('span', { class: 'ai-tool-name' }, TOOL_LABEL[it.name] || it.name),
+          h('span', { class: 'ai-tool-name' }, toolLabel(it.name)),
           h('span', { class: 'ai-tool-status ' + it.status }, statusText[it.status]));
         const box = h('div', { class: 'ai-tool ' + it.status }, head,
           h('pre', { class: 'ai-tool-args' }, summarize(it.name, it.args, 300)));
         if (it.status === 'approval') {
           const resolve = this.approvals.get(it.reqId);
           box.append(h('div', { class: 'ai-approve-btns' },
-            h('button', { class: 'btn', onclick: () => resolve?.(false) }, 'Tolak'),
-            h('button', { class: 'btn', onclick: () => resolve?.('all') }, READ_TOOLS.has(it.name) ? 'Izinkan semua baca' : 'Izinkan semua perubahan'),
-            h('button', { class: 'btn primary', onclick: () => resolve?.(true) }, 'Izinkan')));
+            h('button', { class: 'btn', onclick: () => resolve?.(false) }, t('Tolak')),
+            h('button', { class: 'btn', onclick: () => resolve?.('all') }, READ_TOOLS.has(it.name) ? t('Izinkan semua baca') : t('Izinkan semua perubahan')),
+            h('button', { class: 'btn primary', onclick: () => resolve?.(true) }, t('Izinkan'))));
         }
         if (it.output) {
           const out = h('pre', { class: 'ai-tool-out' + (it.open ? '' : ' collapsed') }, it.output.length > 20000 ? it.output.slice(-20000) : it.output);
-          const toggle = h('button', { class: 'link' }, it.open ? 'Sembunyikan hasil' : 'Lihat hasil');
+          const toggle = h('button', { class: 'link' }, it.open ? t('Sembunyikan hasil') : t('Lihat hasil'));
           toggle.onclick = () => { it.open = !it.open; this.render(); };
           box.append(toggle, out);
         }
@@ -752,8 +754,8 @@ function summarize(name: string, a: any, max: number): string {
     case 'send_keys': s = String(a.keys ?? ''); break;
     case 'write_file': s = `${a.path}\n────\n${String(a.content ?? '')}`; break;
     case 'read_file': case 'list_dir': s = String(a.path ?? ''); break;
-    case 'read_screen': s = a.history_lines ? `layar + ${a.history_lines} baris riwayat` : 'layar saat ini'; break;
-    case 'wait_for_screen': s = a.until_text ? `tunggu sampai muncul "${a.until_text}" (maks ${a.seconds || 30} dtk)` : `tunggu layar berhenti berubah (maks ${a.seconds || 30} dtk)`; break;
+    case 'read_screen': s = a.history_lines ? t('layar + {0} baris riwayat', a.history_lines) : t('layar saat ini'); break;
+    case 'wait_for_screen': s = a.until_text ? t('tunggu sampai muncul "{0}" (maks {1} dtk)', a.until_text, a.seconds || 30) : t('tunggu layar berhenti berubah (maks {0} dtk)', a.seconds || 30); break;
     default: s = JSON.stringify(a);
   }
   return s.length > max ? s.slice(0, max) + '…' : s;
@@ -910,10 +912,10 @@ function markdown(src: string): string {
 
 /** Form for one OpenAI-compatible provider. Resolves true when saved. */
 async function editProvider(p: { id: string; name: string; baseUrl: string; hasKey: boolean; models: string[] } | null): Promise<boolean> {
-  const name = h('input', { type: 'text', value: p?.name ?? '', placeholder: 'contoh: OpenRouter' });
+  const name = h('input', { type: 'text', value: p?.name ?? '', placeholder: t('contoh: OpenRouter') });
   const url = h('input', { type: 'text', value: p?.baseUrl ?? '', placeholder: 'https://openrouter.ai/api/v1', spellcheck: 'false' });
-  const key = h('input', { type: 'password', placeholder: p?.hasKey ? '(tersimpan — kosongkan agar tidak berubah)' : 'sk-…  (kosongkan untuk server lokal tanpa key)' });
-  const models = h('input', { type: 'text', value: (p?.models ?? []).join(', '), placeholder: 'kosong = ambil otomatis dari /models', spellcheck: 'false' });
+  const key = h('input', { type: 'password', placeholder: p?.hasKey ? t('(tersimpan — kosongkan agar tidak berubah)') : t('sk-…  (kosongkan untuk server lokal tanpa key)') });
+  const models = h('input', { type: 'text', value: (p?.models ?? []).join(', '), placeholder: t('kosong = ambil otomatis dari /models'), spellcheck: 'false' });
   const info = h('div', { class: 'form-hint' });
   const err = h('div', { class: 'form-error' });
   const input = () => main.AIProviderInput.createFrom({
@@ -921,26 +923,26 @@ async function editProvider(p: { id: string; name: string; baseUrl: string; hasK
     keepKey: !!p?.hasKey && key.value === '', models: models.value,
   });
   const test = h('button', { class: 'btn small', onclick: async () => {
-    info.textContent = 'Menguji…'; err.textContent = '';
+    info.textContent = t('Menguji…'); err.textContent = '';
     try {
       const list = await TestAIProvider(input());
-      info.textContent = `Berhasil: ${list.length} model ditemukan${list.length ? ` (mis. ${list.slice(0, 4).join(', ')})` : ''}.`;
-    } catch (e) { info.textContent = ''; err.textContent = 'Gagal: ' + errMsg(e); }
-  } }, 'Tes koneksi');
+      info.textContent = t('Berhasil: {0} model ditemukan{1}.', list.length, list.length ? t(' (mis. {0})', list.slice(0, 4).join(', ')) : '');
+    } catch (e) { info.textContent = ''; err.textContent = t('Gagal: ') + errMsg(e); }
+  } }, t('Tes koneksi'));
   const body = h('div', { class: 'form' },
-    h('label', {}, 'Nama', name),
+    h('label', {}, t('Nama'), name),
     h('label', {}, 'Base URL (OpenAI-compatible)', url,
-      h('small', {}, 'Contoh: https://api.openai.com/v1 · https://openrouter.ai/api/v1 · https://api.groq.com/openai/v1 · http://localhost:11434/v1 (Ollama)')),
-    h('label', {}, 'API key (disimpan terenkripsi)', key),
-    h('label', {}, 'Model (opsional, pisahkan dengan koma)', models),
+      h('small', {}, t('Contoh: https://api.openai.com/v1 · https://openrouter.ai/api/v1 · https://api.groq.com/openai/v1 · http://localhost:11434/v1 (Ollama)'))),
+    h('label', {}, t('API key (disimpan terenkripsi)'), key),
+    h('label', {}, t('Model (opsional, pisahkan dengan koma)'), models),
     h('div', { class: 'input-row' }, test, info),
     err);
-  const r = await openModal(p ? 'Edit provider' : 'Tambah provider', body,
-    [{ label: 'Batal', value: 'cancel' }, { label: 'Simpan', value: 'ok', primary: true }],
+  const r = await openModal(p ? t('Edit provider') : t('Tambah provider'), body,
+    [{ label: t('Batal'), value: 'cancel' }, { label: t('Simpan'), value: 'ok', primary: true }],
     async v => {
       if (v !== 'ok') return true;
       try { await SaveAIProvider(input()); return true; } catch (e) { err.textContent = errMsg(e); return false; }
     });
-  if (r === 'ok') toast('Provider AI disimpan', 'success');
+  if (r === 'ok') toast(t('Provider AI disimpan'), 'success');
   return r === 'ok';
 }

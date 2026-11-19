@@ -102,6 +102,10 @@ export function GetChangelog() {
   return window['go']['main']['App']['GetChangelog']();
 }
 
+export function GetDonors() {
+  return window['go']['main']['App']['GetDonors']();
+}
+
 export function GetState() {
   return window['go']['main']['App']['GetState']();
 }
@@ -180,6 +184,10 @@ export function Rename(arg1, arg2, arg3) {
 
 export function Resize(arg1, arg2, arg3) {
   return window['go']['main']['App']['Resize'](arg1, arg2, arg3);
+}
+
+export function RestartApp() {
+  return window['go']['main']['App']['RestartApp']();
 }
 
 export function RunHidden(arg1, arg2, arg3) {

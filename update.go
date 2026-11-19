@@ -106,20 +106,60 @@ func newerVersion(a, b string) bool {
 //go:embed CHANGELOG.id.md
 var changelogID string
 
-// GetChangelog returns the version history in Indonesian (Markdown).
-func (a *App) GetChangelog() string { return changelogID }
+//go:embed README.md
+var readmeMD string
+
+// GetChangelog returns the version history (Markdown) in the UI language:
+// CHANGELOG.id.md in Indonesian, the README table in English.
+func (a *App) GetChangelog() string {
+	if curLang() == "en" {
+		if s := changelogFromReadme(readmeMD); s != "" {
+			return s
+		}
+	}
+	return changelogID
+}
+
+// changelogFromReadme turns the README "Version history" table into
+// "## <version>" sections.
+func changelogFromReadme(md string) string {
+	md = strings.ReplaceAll(md, "\r\n", "\n")
+	i := strings.Index(md, "\n## Version history")
+	if i < 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("# Version history\n")
+	for _, l := range strings.Split(md[i+1:], "\n")[1:] {
+		if strings.HasPrefix(l, "## ") {
+			break
+		}
+		cells := strings.Split(l, "|")
+		if len(cells) < 5 || !strings.HasPrefix(strings.TrimSpace(cells[1]), "**") {
+			continue
+		}
+		v := strings.Trim(strings.TrimSpace(cells[1]), "*")
+		changes := strings.TrimSpace(strings.Join(cells[3:len(cells)-1], "|"))
+		fmt.Fprintf(&b, "\n## %s\n%s\n", v, changes)
+	}
+	return b.String()
+}
 
 const notesIDStart, notesIDEnd = "<!-- notes-id -->", "<!-- /notes-id -->"
 
 // releaseNotes keeps the "what changed" part of a release body: the
 // Indonesian block the release workflow copies from CHANGELOG.id.md when there
-// is one, otherwise the English notes without the title and download hint.
+// is one (unless the UI is English), otherwise the English notes without the
+// title and download hint.
 func releaseNotes(body string) string {
 	body = strings.ReplaceAll(body, "\r\n", "\n")
 	if i := strings.Index(body, notesIDStart); i >= 0 {
 		rest := body[i+len(notesIDStart):]
 		if j := strings.Index(rest, notesIDEnd); j >= 0 {
-			return strings.TrimSpace(rest[:j])
+			if curLang() != "en" {
+				return strings.TrimSpace(rest[:j])
+			}
+			body = body[:i] + rest[j+len(notesIDEnd):] // English: the notes outside the block
 		}
 	}
 	var keep []string
@@ -201,15 +241,15 @@ func fetchReleases() ([]ghRelease, error) {
 	req.Header.Set("User-Agent", "RemoteTerminal-updater")
 	resp, err := updateHTTP.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("tidak bisa terhubung ke GitHub: %w", err)
+		return nil, fmt.Errorf(L("tidak bisa terhubung ke GitHub: %w", "cannot connect to GitHub: %w"), err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("GitHub menjawab HTTP %d", resp.StatusCode)
+		return nil, fmt.Errorf(L("GitHub menjawab HTTP %d", "GitHub answered HTTP %d"), resp.StatusCode)
 	}
 	var rels []ghRelease
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 8<<20)).Decode(&rels); err != nil {
-		return nil, fmt.Errorf("data rilis tidak dikenali: %w", err)
+		return nil, fmt.Errorf(L("data rilis tidak dikenali: %w", "unrecognized release data: %w"), err)
 	}
 	return rels, nil
 }
@@ -239,15 +279,15 @@ func dirExists(p string) bool {
 // "update:progress" events ({done, total}).
 func (a *App) DownloadUpdate(url string) (string, error) {
 	if !strings.HasPrefix(url, updateDLPrefix) {
-		return "", errors.New("alamat unduhan tidak valid")
+		return "", errors.New(L("alamat unduhan tidak valid", "invalid download address"))
 	}
 	resp, err := http.Get(url) // GitHub redirects to its file storage
 	if err != nil {
-		return "", fmt.Errorf("gagal mengunduh: %w", err)
+		return "", fmt.Errorf(L("gagal mengunduh: %w", "download failed: %w"), err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return "", fmt.Errorf("gagal mengunduh: HTTP %d", resp.StatusCode)
+		return "", fmt.Errorf(L("gagal mengunduh: HTTP %d", "download failed: HTTP %d"), resp.StatusCode)
 	}
 	dir := updateDir()
 	tmp, err := os.CreateTemp(dir, "RemoteTerminal-*.part")
@@ -277,13 +317,13 @@ func (a *App) DownloadUpdate(url string) (string, error) {
 		if rerr != nil {
 			tmp.Close()
 			os.Remove(tmp.Name())
-			return "", fmt.Errorf("unduhan terputus: %w", rerr)
+			return "", fmt.Errorf(L("unduhan terputus: %w", "download interrupted: %w"), rerr)
 		}
 	}
 	tmp.Close()
 	if total > 0 && done != total {
 		os.Remove(tmp.Name())
-		return "", fmt.Errorf("unduhan tidak lengkap (%d dari %d byte)", done, total)
+		return "", fmt.Errorf(L("unduhan tidak lengkap (%d dari %d byte)", "incomplete download (%d of %d bytes)"), done, total)
 	}
 	a.emit("update:progress", map[string]int64{"done": done, "total": done})
 	// RemoteTerminal.exe, or RemoteTerminal (2).exe … when that name is taken
@@ -304,7 +344,7 @@ func (a *App) DownloadUpdate(url string) (string, error) {
 		}
 	}
 	os.Remove(tmp.Name())
-	return "", errors.New("tidak bisa menyimpan file di folder Download")
+	return "", errors.New(L("tidak bisa menyimpan file di folder Download", "cannot save the file in the Downloads folder"))
 }
 
 // AppLocation tells the UI where the running .exe and its data live, for the

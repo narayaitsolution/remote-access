@@ -100,6 +100,10 @@ Everything else is built in. On first start, the app offers to install the missi
 | Codex CLI | AI: Codex | `winget install OpenAI.Codex` |
 | Microsoft Office or LibreOffice | Editing Office files | `winget install TheDocumentFoundation.LibreOffice` |
 
+## Language
+
+The app is in **Indonesian** and **English**. It follows the Windows display language by default (Indonesian Windows → Indonesian, otherwise English). Change it in ⓘ → **Language**; the app offers to reopen itself to apply it. The AI assistant answers in the language you write in.
+
 ## Updates
 
 At start-up the app checks GitHub Releases in the background and does nothing if there is no update or no internet.
@@ -150,6 +154,7 @@ The file is created on first start and can be edited while the app is closed. **
 
 ```toml
 [settings]
+  language = ""              # "" = Windows language, "id" = Indonesian, "en" = English
   font_size = 14
   scrollback = 10000
   keepalive_seconds = 15
@@ -184,6 +189,8 @@ Remote Terminal is **free and open source** under the MIT license, and it will s
 If it saves you time, you can support its development with a voluntary donation:
 
 [![Buy me a coffee](https://img.shields.io/badge/☕%20Buy%20me%20a%20coffee-Donate%20via%20Lynk.id-orange?style=for-the-badge)](https://lynk.id/narayait/nxy5vvy8xwlw/checkout)
+
+In the app, ⓘ → **♥ Donate** shows the donation link and thanks donors by name. The list lives in [`donors.json`](donors.json); the app reads it from GitHub, so a new donor appears without a new release (format: `{"links": [{"name", "url"}], "donors": [{"name", "note"?, "date"?}]}`).
 
 Donations are entirely optional. They do not unlock features, grant extra rights or change the license terms.
 Other ways to help: star the repository, report bugs or contribute a pull request.
@@ -238,6 +245,8 @@ GitHub Actions then publishes the `.exe` to Releases.
 | `localedit.go`, `winshell_*.go` | Editing in Windows apps with auto-upload |
 | `update.go`, `version.go`, `deps.go` | Update check, version, winget setup |
 | `fileicon*.go` | Windows Explorer file icons |
+| `i18n.go`, `lang_*.go`, `frontend/src/i18n*.ts` | UI language: texts are Indonesian, wrapped in `L(id, en)` (Go) or `t('…')` (UI; English in `i18n-en.ts`, checked by a test) |
+| `donors.go`, `donors.json` | Donate tab: donation links and donors (from GitHub, built-in fallback) |
 | `frontend/src/` | UI: `layout`, `pane`, `picker`, `sidebar`, `ai`, `editor`/`monaco`, `viewers`, `setup`, `about`, `fileicons` |
 | `tools/mkicon`, `assets/` | Icon generation |
 </details>
@@ -251,6 +260,7 @@ The full Indonesian changelog is in [`CHANGELOG.id.md`](CHANGELOG.id.md) and in 
 
 | Version | Type | Changes |
 |---|---|---|
+| **11.1** | Minor | UI in Indonesian and English (follows Windows by default, selectable in ⓘ, new `language` setting); English version history and update notes. Information window tabs: Features · Version history · **♥ Donate** (donation link and donor list from `donors.json`). New icon: the prompt `>` ends in a Wi-Fi signal. |
 | **11.0** | Feature | Select-to-copy in a plain shell. Clicks pass through to mouse-aware programs. Per-file transfer progress. Information window (ⓘ). Start-up update check with *Update* / *Skip*. Executable is always `RemoteTerminal.exe`. *Auto-allow* checkboxes replaced by agent mode. |
 | **10.0** | Feature | AI Sidebar **agent mode**. **AI Companion** inline suggestions (`Alt+\`). |
 | **9.0** | Feature | VS Code-like editing: autocomplete, snippets, language picker, format, command palette, word wrap, sticky scroll. |

@@ -100,7 +100,7 @@ func (s *Session) rename(from, to string) error {
 		return err
 	}
 	if _, err := c.Lstat(to); err == nil {
-		return fmt.Errorf("%s sudah ada", path.Base(to))
+		return fmt.Errorf(L("%s sudah ada", "%s already exists"), path.Base(to))
 	}
 	return c.Rename(from, to)
 }
@@ -137,7 +137,7 @@ func (s *Session) chmod(p, mode string) error {
 	}
 	m, err := strconv.ParseUint(strings.TrimSpace(mode), 8, 32)
 	if err != nil || m > 0o7777 {
-		return errors.New("mode harus angka oktal, contoh 755")
+		return errors.New(L("mode harus angka oktal, contoh 755", "mode must be an octal number, e.g. 755"))
 	}
 	return c.Chmod(p, os.FileMode(m))
 }
@@ -447,10 +447,10 @@ func (s *Session) readForEdit(p string) (EditFile, error) {
 		return EditFile{}, err
 	}
 	if st.IsDir() {
-		return EditFile{}, errors.New("ini folder, bukan file")
+		return EditFile{}, errors.New(L("ini folder, bukan file", "this is a folder, not a file"))
 	}
 	if st.Size() > maxEditBytes {
-		return EditFile{}, fmt.Errorf("file terlalu besar untuk editor (%d MB, maks 5 MB). Gunakan Download", st.Size()>>20)
+		return EditFile{}, fmt.Errorf(L("file terlalu besar untuk editor (%d MB, maks 5 MB). Gunakan Download", "file too large for the editor (%d MB, max 5 MB). Use Download"), st.Size()>>20)
 	}
 	f, err := c.Open(p)
 	if err != nil {
@@ -462,7 +462,7 @@ func (s *Session) readForEdit(p string) (EditFile, error) {
 		return EditFile{}, err
 	}
 	if looksBinary(data) {
-		return EditFile{}, errors.New("file biner (bukan teks), tidak bisa dibuka di editor. Gunakan Download")
+		return EditFile{}, errors.New(L("file biner (bukan teks), tidak bisa dibuka di editor. Gunakan Download", "binary file (not text), cannot be opened in the editor. Use Download"))
 	}
 	return EditFile{Path: p, Content: string(data), Stamp: fileStamp(st), Size: st.Size(), Mode: st.Mode().String()}, nil
 }
@@ -491,7 +491,7 @@ func (s *Session) saveFromEdit(p, content, expect string, force bool) (string, e
 		return "", err
 	}
 	if st, err := c.Stat(p); err == nil && expect != "" && !force && fileStamp(st) != expect {
-		return "", fmt.Errorf("conflict:File di server sudah berubah sejak dibuka (terakhir diubah %s)", st.ModTime().Format("2006-01-02 15:04:05"))
+		return "", fmt.Errorf(L("conflict:File di server sudah berubah sejak dibuka (terakhir diubah %s)", "conflict:The file on the server has changed since it was opened (last modified %s)"), st.ModTime().Format("2006-01-02 15:04:05"))
 	}
 	f, err := c.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
 	if err != nil {
@@ -524,7 +524,7 @@ func (s *Session) readBinary(p string) ([]byte, error) {
 		return nil, err
 	}
 	if st.Size() > maxViewBytes {
-		return nil, fmt.Errorf("file terlalu besar untuk ditampilkan (%d MB, maks 64 MB). Gunakan Download", st.Size()>>20)
+		return nil, fmt.Errorf(L("file terlalu besar untuk ditampilkan (%d MB, maks 64 MB). Gunakan Download", "file too large to display (%d MB, max 64 MB). Use Download"), st.Size()>>20)
 	}
 	f, err := c.Open(p)
 	if err != nil {

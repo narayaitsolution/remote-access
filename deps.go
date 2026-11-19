@@ -55,14 +55,17 @@ func officeCheck() (bool, string) {
 
 func fileExists(p string) bool { _, err := os.Stat(p); return err == nil }
 
-var depSpecs = []depSpec{
-	{id: "claude", name: "Claude Code CLI", purpose: "Asisten AI: Claude", wingetID: "Anthropic.ClaudeCode", needsLogin: true,
-		manual: "https://docs.anthropic.com/claude-code", check: func() (bool, string) { return lookPath("claude") }},
-	{id: "codex", name: "Codex CLI", purpose: "Asisten AI: Codex", wingetID: "OpenAI.Codex", needsLogin: true,
-		manual: "https://github.com/openai/codex", check: func() (bool, string) { return lookPath("codex") }},
-	{id: "office", name: "Microsoft Office / LibreOffice", purpose: "Membuka & mengedit Word, Excel, PowerPoint",
-		wingetID: "TheDocumentFoundation.LibreOffice", manual: "Pasang Microsoft Office atau https://www.libreoffice.org",
-		check: officeCheck},
+// depSpecs is built on each call so the texts follow the UI language.
+func depSpecs() []depSpec {
+	return []depSpec{
+		{id: "claude", name: "Claude Code CLI", purpose: L("Asisten AI: Claude", "AI assistant: Claude"), wingetID: "Anthropic.ClaudeCode", needsLogin: true,
+			manual: "https://docs.anthropic.com/claude-code", check: func() (bool, string) { return lookPath("claude") }},
+		{id: "codex", name: "Codex CLI", purpose: L("Asisten AI: Codex", "AI assistant: Codex"), wingetID: "OpenAI.Codex", needsLogin: true,
+			manual: "https://github.com/openai/codex", check: func() (bool, string) { return lookPath("codex") }},
+		{id: "office", name: "Microsoft Office / LibreOffice", purpose: L("Membuka & mengedit Word, Excel, PowerPoint", "Open & edit Word, Excel, PowerPoint"),
+			wingetID: "TheDocumentFoundation.LibreOffice", manual: L("Pasang Microsoft Office atau https://www.libreoffice.org", "Install Microsoft Office or https://www.libreoffice.org"),
+			check: officeCheck},
+	}
 }
 
 // CheckDeps reports every dependency and the built-in features.
@@ -70,10 +73,10 @@ func (a *App) CheckDeps() []DepStatus {
 	refreshPath()
 	winget, _ := lookPath("winget")
 	out := []DepStatus{
-		{ID: "builtin", Name: "Terminal SSH, SFTP, editor kode (VS Code/Monaco), PDF, Markdown, gambar, AI via URL OpenAI-compatible",
-			Purpose: "Fitur bawaan", Status: "builtin", Detail: "Sudah termasuk di dalam aplikasi"},
+		{ID: "builtin", Name: L("Terminal SSH, SFTP, editor kode (VS Code/Monaco), PDF, Markdown, gambar, AI via URL OpenAI-compatible", "SSH terminal, SFTP, code editor (VS Code/Monaco), PDF, Markdown, images, AI via OpenAI-compatible URL"),
+			Purpose: L("Fitur bawaan", "Built-in features"), Status: "builtin", Detail: L("Sudah termasuk di dalam aplikasi", "Included in the app")},
 	}
-	for _, d := range depSpecs {
+	for _, d := range depSpecs() {
 		ok, detail := d.check()
 		st := DepStatus{ID: d.id, Name: d.name, Purpose: d.purpose, Status: "missing", Detail: detail,
 			Installable: winget && d.wingetID != "", NeedsLogin: d.needsLogin, Manual: d.manual}
@@ -83,8 +86,8 @@ func (a *App) CheckDeps() []DepStatus {
 		out = append(out, st)
 	}
 	if !winget {
-		out = append(out, DepStatus{ID: "winget", Name: "Windows Package Manager (winget)", Purpose: "Pemasangan otomatis",
-			Status: "missing", Manual: "Pasang \"App Installer\" dari Microsoft Store"})
+		out = append(out, DepStatus{ID: "winget", Name: "Windows Package Manager (winget)", Purpose: L("Pemasangan otomatis", "Automatic installation"),
+			Status: "missing", Manual: L("Pasang \"App Installer\" dari Microsoft Store", "Install \"App Installer\" from the Microsoft Store")})
 	}
 	return out
 }
@@ -92,17 +95,18 @@ func (a *App) CheckDeps() []DepStatus {
 // InstallDep installs one dependency with winget, streaming output as "dep:log" events.
 func (a *App) InstallDep(id string) error {
 	var spec *depSpec
-	for i := range depSpecs {
-		if depSpecs[i].id == id {
-			spec = &depSpecs[i]
+	specs := depSpecs()
+	for i := range specs {
+		if specs[i].id == id {
+			spec = &specs[i]
 		}
 	}
 	if spec == nil || spec.wingetID == "" {
-		return errors.New("tidak bisa dipasang otomatis")
+		return errors.New(L("tidak bisa dipasang otomatis", "cannot be installed automatically"))
 	}
 	winget, err := exec.LookPath("winget")
 	if err != nil {
-		return errors.New("winget tidak tersedia; pasang \"App Installer\" dari Microsoft Store")
+		return errors.New(L("winget tidak tersedia; pasang \"App Installer\" dari Microsoft Store", "winget is not available; install \"App Installer\" from the Microsoft Store"))
 	}
 	cmd := exec.Command(winget, "install", "--id", spec.wingetID, "-e", "--silent",
 		"--accept-package-agreements", "--accept-source-agreements", "--disable-interactivity")
@@ -128,9 +132,9 @@ func (a *App) InstallDep(id string) error {
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("winget gagal: %w", err)
+		return fmt.Errorf(L("winget gagal: %w", "winget failed: %w"), err)
 	}
-	return errors.New("terpasang, tetapi belum terdeteksi; coba buka ulang aplikasi")
+	return errors.New(L("terpasang, tetapi belum terdeteksi; coba buka ulang aplikasi", "installed, but not detected yet; try reopening the app"))
 }
 
 // LoginAI opens a console window where the user logs in to the AI CLI once.
@@ -143,10 +147,10 @@ func (a *App) LoginAI(provider string) error {
 	case "codex":
 		args = []string{"codex", "login"}
 	default:
-		return errors.New("provider tidak dikenal")
+		return errors.New(L("provider tidak dikenal", "unknown provider"))
 	}
 	if _, err := exec.LookPath(args[0]); err != nil {
-		return fmt.Errorf("%s belum terpasang", args[0])
+		return fmt.Errorf(L("%s belum terpasang", "%s is not installed"), args[0])
 	}
 	cmd := exec.Command("cmd", append([]string{"/c", "start", "Login " + args[0], "cmd", "/k"}, args...)...)
 	return cmd.Start()

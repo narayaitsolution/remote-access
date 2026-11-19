@@ -9,6 +9,7 @@ import { ClipboardSetText, EventsOn, OnFileDrop } from '../wailsjs/runtime/runti
 import { icons } from './icons';
 import type { Pane } from './pane';
 import { hooks, saveSettingsSoon, store } from './state';
+import { t } from './i18n';
 import {
   confirmDialog, contextMenu, errMsg, fmtDate, fmtSize, h, isModalOpen, promptText, toast, type MenuItem,
 } from './ui';
@@ -43,15 +44,15 @@ export class Sidebar {
   constructor() {
     const tb = (icon: string, title: string, fn: () => void) =>
       h('button', { class: 'icon-btn', title, html: icon, onclick: fn });
-    this.followBtn = tb(icons.follow, 'Ikuti folder terminal', () => this.setFollow(true));
+    this.followBtn = tb(icons.follow, t('Ikuti folder terminal'), () => this.setFollow(true));
     const toolbar = h('div', { class: 'sb-toolbar' },
-      tb(icons.up, 'Naik ke folder sebelumnya (Backspace)', () => this.goUp()),
+      tb(icons.up, t('Naik ke folder sebelumnya (Backspace)'), () => this.goUp()),
       tb(icons.upload, 'Upload…', () => this.uploadMenu()),
       tb(icons.download, 'Download', () => this.download()),
-      tb(icons.filePlus, 'File baru', () => this.newFile()),
-      tb(icons.folderPlus, 'Folder baru', () => this.newFolder()),
+      tb(icons.filePlus, t('File baru'), () => this.newFile()),
+      tb(icons.folderPlus, t('Folder baru'), () => this.newFolder()),
       tb(icons.rename, 'Rename (F2)', () => this.rename()),
-      tb(icons.trash, 'Hapus (Del)', () => this.remove()),
+      tb(icons.trash, t('Hapus (Del)'), () => this.remove()),
       tb(icons.refresh, 'Refresh (F5)', () => this.refresh(true)),
       this.followBtn);
     this.pathInput = h('input', { class: 'sb-path', type: 'text', spellcheck: 'false' });
@@ -73,7 +74,7 @@ export class Sidebar {
     this.applyVisibility();
 
     OnFileDrop((x, y, paths) => this.onDrop(x, y, paths), true);
-    EventsOn('xfer', (t: Xfer) => this.onXfer(t));
+    EventsOn('xfer', (x: Xfer) => this.onXfer(x));
     EventsOn('localEdit', (le: any) => this.onLocalEdit(le));
     setInterval(() => this.followTick(), 1500);
   }
@@ -118,7 +119,7 @@ export class Sidebar {
       }
     } else if (changed || p.state === 'picker' || p.state === 'connecting') {
       this.boundSession = '';
-      this.placeholder(p.state === 'picker' ? 'Pilih server untuk melihat file.' : 'Belum terhubung.');
+      this.placeholder(p.state === 'picker' ? t('Pilih server untuk melihat file.') : t('Belum terhubung.'));
     }
   }
   private boundSession = '';
@@ -173,7 +174,7 @@ export class Sidebar {
       this.render();
       return true;
     } catch (e) {
-      if (seq === this.loadSeq) toast('Gagal membuka folder: ' + errMsg(e), 'error');
+      if (seq === this.loadSeq) toast(t('Gagal membuka folder: ') + errMsg(e), 'error');
       return false;
     } finally {
       if (seq === this.loadSeq) this.loading = false;
@@ -183,12 +184,12 @@ export class Sidebar {
   /** Reloads the listing; `notify` shows a toast (user-triggered refresh). */
   async refresh(notify = false) {
     if (!this.pane?.connected) return;
-    if (await this.navigate(this.path, false) && notify) toast('Daftar file diperbarui', 'success');
+    if (await this.navigate(this.path, false) && notify) toast(t('Daftar file diperbarui'), 'success');
   }
   private async goUp() {
     if (!this.path || this.path === '/') return;
     const target = parent(this.path);
-    if (await this.navigate(target)) toast('Folder: ' + this.path, 'success');
+    if (await this.navigate(target)) toast(t('Folder: ') + this.path, 'success');
   }
 
   private render() {
@@ -258,14 +259,14 @@ export class Sidebar {
     if (!id) return;
     try {
       const le = await EditLocally(id, join(this.path, e.name));
-      toast(`${e.name} dibuka di ${le.app}. Setiap kali disimpan, file otomatis di-upload ke server.`, 'success');
+      toast(t('{0} dibuka di {1}. Setiap kali disimpan, file otomatis di-upload ke server.', e.name, le.app), 'success');
     } catch (err) {
       const msg = String(err);
       if (msg.startsWith('noapp:') && OFFICE_EXT.has(extOf(e.name))) {
-        const ok = await confirmDialog('Aplikasi Office belum ada', `${msg.slice(6)}. Pasang LibreOffice (gratis) sekarang?`, 'Pasang…');
+        const ok = await confirmDialog(t('Aplikasi Office belum ada'), t('{0}. Pasang LibreOffice (gratis) sekarang?', msg.slice(6)), t('Pasang…'));
         if (ok) hooks.showSetup('office');
       } else {
-        toast(`Tidak bisa membuka ${e.name}: ${errMsg(err)}`, 'error');
+        toast(t('Tidak bisa membuka {0}: {1}', e.name, errMsg(err)), 'error');
       }
     }
   }
@@ -276,17 +277,17 @@ export class Sidebar {
     if (le.state === 'closed') { el?.remove(); this.localEdits.delete(le.id); return; }
     if (!el) { el = h('div', { class: 'xfer local' }); this.localEdits.set(le.id, el); this.xferBox.prepend(el); }
     const when = le.lastSync ? new Date(le.lastSync * 1000).toLocaleTimeString() : '';
-    const status = le.state === 'editing' ? `Sedang diedit di ${le.app} — simpan di sana untuk upload otomatis`
-      : le.state === 'syncing' ? 'Mengupload perubahan…'
-      : le.state === 'synced' ? `Tersimpan ke server ${when}`
-      : 'Gagal upload: ' + le.error;
-    if (le.state === 'synced') { toast(`${le.name} tersimpan ke server`, 'success'); if (parentDir(le.remote) === this.path) this.refresh(); }
-    if (le.state === 'error') toast(`Gagal upload ${le.name}: ${le.error}`, 'error');
+    const status = le.state === 'editing' ? t('Sedang diedit di {0} — simpan di sana untuk upload otomatis', le.app)
+      : le.state === 'syncing' ? t('Mengupload perubahan…')
+      : le.state === 'synced' ? t('Tersimpan ke server {0}', when)
+      : t('Gagal upload: ') + le.error;
+    if (le.state === 'synced') { toast(t('{0} tersimpan ke server', le.name), 'success'); if (parentDir(le.remote) === this.path) this.refresh(); }
+    if (le.state === 'error') toast(t('Gagal upload {0}: {1}', le.name, le.error), 'error');
     el.className = 'xfer local ' + (le.state === 'error' ? 'error' : le.state === 'synced' ? 'done' : '');
     el.replaceChildren(
       h('div', { class: 'xfer-head' }, h('span', { class: 'xfer-icon', html: icons.rename }),
         h('span', { class: 'xfer-name', title: le.remote }, le.name),
-        h('button', { class: 'btn small', title: 'Berhenti memantau file ini', onclick: () => StopLocalEdit(le.id) }, 'Selesai')),
+        h('button', { class: 'btn small', title: t('Berhenti memantau file ini'), onclick: () => StopLocalEdit(le.id) }, t('Selesai'))),
       h('div', { class: 'xfer-status', title: status }, status));
   }
 
@@ -319,7 +320,7 @@ export class Sidebar {
 
   // ---------- actions ----------
   private need(): string | null {
-    if (!this.pane?.connected) { toast('Tidak terhubung', 'error'); return null; }
+    if (!this.pane?.connected) { toast(t('Tidak terhubung'), 'error'); return null; }
     return this.pane.sessionId;
   }
 
@@ -337,45 +338,45 @@ export class Sidebar {
   private uploadMenu() {
     const btn = this.el.querySelector('.sb-toolbar .icon-btn:nth-child(2)')!.getBoundingClientRect();
     contextMenu(btn.left, btn.bottom + 2, [
-      { label: 'Upload file…', icon: icons.file, action: () => this.upload(false) },
-      { label: 'Upload folder…', icon: icons.folder, action: () => this.upload(true) },
+      { label: t('Upload file…'), icon: icons.file, action: () => this.upload(false) },
+      { label: t('Upload folder…'), icon: icons.folder, action: () => this.upload(true) },
     ]);
   }
 
   private upload(folder: boolean, dir = this.path) {
     const id = this.need();
-    if (id) UploadDialog(id, dir, folder).catch(e => toast('Upload gagal: ' + errMsg(e), 'error'));
+    if (id) UploadDialog(id, dir, folder).catch(e => toast(t('Upload gagal: ') + errMsg(e), 'error'));
   }
 
   private download(paths = this.selPaths()) {
     const id = this.need();
     if (!id) return;
-    if (!paths.length) { toast('Pilih file/folder yang akan di-download'); return; }
-    DownloadDialog(id, paths).catch(e => toast('Download gagal: ' + errMsg(e), 'error'));
+    if (!paths.length) { toast(t('Pilih file/folder yang akan di-download')); return; }
+    DownloadDialog(id, paths).catch(e => toast(t('Download gagal: ') + errMsg(e), 'error'));
   }
 
   private async newFile() {
     const id = this.need();
     if (!id) return;
-    const name = await promptText('File baru', `Nama file di ${this.path}`);
-    if (name) this.act(() => CreateFile(id, join(this.path, name)), `File "${name}" dibuat`, 'Gagal membuat file');
+    const name = await promptText(t('File baru'), t('Nama file di {0}', this.path));
+    if (name) this.act(() => CreateFile(id, join(this.path, name)), t('File "{0}" dibuat', name), t('Gagal membuat file'));
   }
 
   private async newFolder() {
     const id = this.need();
     if (!id) return;
-    const name = await promptText('Folder baru', `Nama folder di ${this.path}`);
-    if (name) this.act(() => Mkdir(id, join(this.path, name)), `Folder "${name}" dibuat`, 'Gagal membuat folder');
+    const name = await promptText(t('Folder baru'), t('Nama folder di {0}', this.path));
+    if (name) this.act(() => Mkdir(id, join(this.path, name)), t('Folder "{0}" dibuat', name), t('Gagal membuat folder'));
   }
 
   private async rename() {
     const id = this.need();
     if (!id) return;
     const sel = this.selPaths();
-    if (sel.length !== 1) { toast('Pilih satu file/folder untuk di-rename'); return; }
+    if (sel.length !== 1) { toast(t('Pilih satu file/folder untuk di-rename')); return; }
     const old = sel[0].split('/').pop()!;
-    const name = await promptText('Rename', 'Nama baru', old, true);
-    if (name && name !== old) this.act(() => Rename(id, sel[0], join(this.path, name)), `Rename berhasil: ${old} → ${name}`, 'Gagal rename');
+    const name = await promptText('Rename', t('Nama baru'), old, true);
+    if (name && name !== old) this.act(() => Rename(id, sel[0], join(this.path, name)), t('Rename berhasil: {0} → {1}', old, name), t('Gagal rename'));
   }
 
   private async remove() {
@@ -383,10 +384,10 @@ export class Sidebar {
     if (!id) return;
     const sel = this.selPaths();
     if (!sel.length) return;
-    const what = sel.length === 1 ? `"${sel[0].split('/').pop()}"` : `${sel.length} item`;
+    const what = sel.length === 1 ? `"${sel[0].split('/').pop()}"` : t('{0} item', sel.length);
     const hasDir = this.entries.some(e => this.selected.has(e.name) && e.isDir);
-    if (await confirmDialog('Hapus', `Hapus ${what}${hasDir ? ' beserta seluruh isinya' : ''}? Tindakan ini tidak bisa dibatalkan.`, 'Hapus', true)) {
-      this.act(() => Remove(id, sel), `${what} dihapus`, 'Gagal menghapus');
+    if (await confirmDialog(t('Hapus'), (hasDir ? t('Hapus {0} beserta seluruh isinya? Tindakan ini tidak bisa dibatalkan.', what) : t('Hapus {0}? Tindakan ini tidak bisa dibatalkan.', what)), t('Hapus'), true)) {
+      this.act(() => Remove(id, sel), t('{0} dihapus', what), t('Gagal menghapus'));
     }
   }
 
@@ -394,13 +395,13 @@ export class Sidebar {
     const id = this.need();
     if (!id) return;
     const cur = modeToOctal(e.mode);
-    const mode = await promptText('Ubah izin (chmod)', `Mode oktal untuk ${e.name} (sekarang ${cur})`, cur);
-    if (mode) this.act(() => Chmod(id, join(this.path, e.name), mode), `Izin ${e.name} diubah ke ${mode}`, 'Gagal mengubah izin');
+    const mode = await promptText(t('Ubah izin (chmod)'), t('Mode oktal untuk {0} (sekarang {1})', e.name, cur), cur);
+    if (mode) this.act(() => Chmod(id, join(this.path, e.name), mode), t('Izin {0} diubah ke {1}', e.name, mode), t('Gagal mengubah izin'));
   }
 
   private copyText(text: string) {
-    ClipboardSetText(text).then(() => toast('Path disalin ke clipboard', 'success'))
-      .catch(() => toast('Gagal menyalin ke clipboard', 'error'));
+    ClipboardSetText(text).then(() => toast(t('Path disalin ke clipboard'), 'success'))
+      .catch(() => toast(t('Gagal menyalin ke clipboard'), 'error'));
   }
 
   private cdInTerminal(dir: string) {
@@ -414,30 +415,30 @@ export class Sidebar {
     const multi = this.selected.size > 1;
     const full = join(this.path, e.name);
     const items: MenuItem[] = [];
-    if (e.isDir && !multi) items.push({ label: 'Buka', icon: icons.folder, action: () => this.navigate(full) });
+    if (e.isDir && !multi) items.push({ label: t('Buka'), icon: icons.folder, action: () => this.navigate(full) });
     if (!e.isDir && !multi) {
       const office = OFFICE_EXT.has(extOf(e.name));
-      items.push({ label: office ? 'Buka (edit di aplikasi Windows)' : 'Buka', icon: icons.rename, hint: 'Double-click', action: () => this.open(e) });
-      if (office) items.push({ label: 'Buka sebagai teks di editor', icon: icons.file, action: () => this.pane && hooks.openEditor(this.pane, full) });
-      else items.push({ label: 'Buka dengan aplikasi Windows', icon: icons.file, action: async () => {
+      items.push({ label: office ? t('Buka (edit di aplikasi Windows)') : t('Buka'), icon: icons.rename, hint: 'Double-click', action: () => this.open(e) });
+      if (office) items.push({ label: t('Buka sebagai teks di editor'), icon: icons.file, action: () => this.pane && hooks.openEditor(this.pane, full) });
+      else items.push({ label: t('Buka dengan aplikasi Windows'), icon: icons.file, action: async () => {
         const app = await AppForFile(e.name);
-        if (!app) { toast(`Tidak ada aplikasi Windows untuk file .${extOf(e.name) || '(tanpa ekstensi)'}`, 'error'); return; }
+        if (!app) { toast(t('Tidak ada aplikasi Windows untuk file .{0}', extOf(e.name) || t('(tanpa ekstensi)')), 'error'); return; }
         this.openWithApp(e);
       } });
     }
     items.push(
-      { label: multi ? `Download ${this.selected.size} item` : 'Download', icon: icons.download, action: () => this.download() },
+      { label: multi ? t('Download {0} item', this.selected.size) : 'Download', icon: icons.download, action: () => this.download() },
       { label: 'Rename', icon: icons.rename, hint: 'F2', disabled: multi, action: () => this.rename() },
-      { label: multi ? `Hapus ${this.selected.size} item` : 'Hapus', icon: icons.trash, hint: 'Del', action: () => this.remove() },
+      { label: multi ? t('Hapus {0} item', this.selected.size) : t('Hapus'), icon: icons.trash, hint: 'Del', action: () => this.remove() },
       { sep: true },
-      { label: 'Salin path', icon: icons.copy, action: () => this.copyText(multi ? this.selPaths().join('\r\n') : full) },
-      { label: 'Ubah izin (chmod)…', disabled: multi, action: () => this.chmod(e) },
-      { label: 'Buka di terminal', icon: icons.follow, disabled: multi, action: () => this.cdInTerminal(e.isDir ? full : this.path) },
+      { label: t('Salin path'), icon: icons.copy, action: () => this.copyText(multi ? this.selPaths().join('\r\n') : full) },
+      { label: t('Ubah izin (chmod)…'), disabled: multi, action: () => this.chmod(e) },
+      { label: t('Buka di terminal'), icon: icons.follow, disabled: multi, action: () => this.cdInTerminal(e.isDir ? full : this.path) },
     );
     if (e.isDir && !multi) {
       items.push({ sep: true },
-        { label: 'Upload file ke sini…', icon: icons.upload, action: () => this.upload(false, full) },
-        { label: 'Upload folder ke sini…', icon: icons.upload, action: () => this.upload(true, full) });
+        { label: t('Upload file ke sini…'), icon: icons.upload, action: () => this.upload(false, full) },
+        { label: t('Upload folder ke sini…'), icon: icons.upload, action: () => this.upload(true, full) });
     }
     contextMenu(x, y, items);
   }
@@ -445,14 +446,14 @@ export class Sidebar {
   private blankMenu(x: number, y: number) {
     if (!this.pane?.connected) return;
     contextMenu(x, y, [
-      { label: 'Upload file…', icon: icons.upload, action: () => this.upload(false) },
-      { label: 'Upload folder…', icon: icons.upload, action: () => this.upload(true) },
+      { label: t('Upload file…'), icon: icons.upload, action: () => this.upload(false) },
+      { label: t('Upload folder…'), icon: icons.upload, action: () => this.upload(true) },
       { sep: true },
-      { label: 'File baru', icon: icons.filePlus, action: () => this.newFile() },
-      { label: 'Folder baru', icon: icons.folderPlus, action: () => this.newFolder() },
+      { label: t('File baru'), icon: icons.filePlus, action: () => this.newFile() },
+      { label: t('Folder baru'), icon: icons.folderPlus, action: () => this.newFolder() },
       { sep: true },
-      { label: 'Salin path folder ini', icon: icons.copy, action: () => this.copyText(this.path) },
-      { label: 'Buka di terminal', icon: icons.follow, action: () => this.cdInTerminal(this.path) },
+      { label: t('Salin path folder ini'), icon: icons.copy, action: () => this.copyText(this.path) },
+      { label: t('Buka di terminal'), icon: icons.follow, action: () => this.cdInTerminal(this.path) },
       { label: 'Refresh', icon: icons.refresh, hint: 'F5', action: () => this.refresh(true) },
     ]);
   }
@@ -464,50 +465,50 @@ export class Sidebar {
     let dir = this.path;
     const row = document.elementFromPoint(x, y)?.closest<HTMLElement>('.sb-row.dir');
     if (row?.dataset.name) dir = join(this.path, row.dataset.name);
-    Upload(id, paths, dir).catch(e => toast('Upload gagal: ' + errMsg(e), 'error'));
+    Upload(id, paths, dir).catch(e => toast(t('Upload gagal: ') + errMsg(e), 'error'));
   }
 
   // ---------- transfers ----------
-  private onXfer(t: Xfer) {
-    let item = this.xfers.get(t.id);
+  private onXfer(x: Xfer) {
+    let item = this.xfers.get(x.id);
     if (!item) {
       const el = h('div', { class: 'xfer' });
-      item = { data: t, el };
-      this.xfers.set(t.id, item);
+      item = { data: x, el };
+      this.xfers.set(x.id, item);
       this.xferBox.append(el);
     }
-    item.data = t;
-    const pct = t.total > 0 ? Math.floor((t.done / t.total) * 100) : (t.state === 'done' ? 100 : 0);
-    const icon = t.kind === 'upload' ? icons.upload : icons.download;
-    const status = t.state === 'running' ? `${fmtSize(t.done)} / ${fmtSize(t.total)}` :
-      t.state === 'done' ? 'Selesai' : t.state === 'cancelled' ? 'Dibatalkan' : 'Gagal: ' + t.error;
-    const multi = t.count > 1;
+    item.data = x;
+    const pct = x.total > 0 ? Math.floor((x.done / x.total) * 100) : (x.state === 'done' ? 100 : 0);
+    const icon = x.kind === 'upload' ? icons.upload : icons.download;
+    const status = x.state === 'running' ? `${fmtSize(x.done)} / ${fmtSize(x.total)}` :
+      x.state === 'done' ? t('Selesai') : x.state === 'cancelled' ? t('Dibatalkan') : t('Gagal: ') + x.error;
+    const multi = x.count > 1;
     const close = h('button', { class: 'icon-btn small', html: icons.x,
-      title: t.state === 'running' ? (multi ? 'Batalkan (file berikutnya juga dibatalkan)' : 'Batalkan') : 'Tutup' });
+      title: x.state === 'running' ? (multi ? t('Batalkan (file berikutnya juga dibatalkan)') : t('Batalkan')) : t('Tutup') });
     close.onclick = () => {
-      if (t.state === 'running') CancelTransfer(t.id);
-      else { item!.el.remove(); this.xfers.delete(t.id); }
+      if (x.state === 'running') CancelTransfer(x.id);
+      else { item!.el.remove(); this.xfers.delete(x.id); }
     };
-    item.el.className = 'xfer ' + t.state;
+    item.el.className = 'xfer ' + x.state;
     item.el.replaceChildren(
       h('div', { class: 'xfer-head' }, h('span', { class: 'xfer-icon', html: icon }),
-        h('span', { class: 'xfer-name', title: t.name }, t.name),
-        multi ? h('span', { class: 'xfer-count', title: `File ke-${t.index} dari ${t.count}` }, `${t.index}/${t.count}`) : null, close),
+        h('span', { class: 'xfer-name', title: x.name }, x.name),
+        multi ? h('span', { class: 'xfer-count', title: t('File ke-{0} dari {1}', x.index, x.count) }, `${x.index}/${x.count}`) : null, close),
       h('div', { class: 'xfer-bar' }, h('div', { class: 'xfer-fill', style: `width:${pct}%` })),
       h('div', { class: 'xfer-status', title: status }, status));
-    if (t.kind === 'download' && t.state === 'done') {
-      item.el.title = 'Klik untuk membuka folder';
+    if (x.kind === 'download' && x.state === 'done') {
+      item.el.title = t('Klik untuk membuka folder');
       item.el.style.cursor = 'pointer';
-      item.el.onclick = ev => { if (ev.target !== close) OpenLocalFolder(t.dir); };
+      item.el.onclick = ev => { if (ev.target !== close) OpenLocalFolder(x.dir); };
     }
-    const label = t.kind === 'upload' ? 'Upload' : 'Download';
+    const label = x.kind === 'upload' ? 'Upload' : 'Download';
     // One toast per batch, not per file.
-    if (t.state === 'done' && t.index === t.count) toast(multi ? `${label} berhasil: ${t.count} file` : `${label} berhasil: ${t.name}`, 'success');
-    else if (t.state === 'error') toast(`${label} gagal: ${t.name} — ${t.error}`, 'error');
-    else if (t.state === 'cancelled') toast(multi ? `${label} dibatalkan di file ${t.index} dari ${t.count} (${t.name})` : `${label} dibatalkan: ${t.name}`);
-    if (t.state === 'done' || t.state === 'cancelled') {
-      setTimeout(() => { item!.el.remove(); this.xfers.delete(t.id); }, multi ? 2500 : 5000);
-      if (t.kind === 'upload' && this.pane?.sessionId === t.sessId && (t.index === t.count || t.state === 'cancelled')) this.refresh();
+    if (x.state === 'done' && x.index === x.count) toast(multi ? t('{0} berhasil: {1} file', label, x.count) : t('{0} berhasil: {1}', label, x.name), 'success');
+    else if (x.state === 'error') toast(t('{0} gagal: {1} — {2}', label, x.name, x.error), 'error');
+    else if (x.state === 'cancelled') toast(multi ? t('{0} dibatalkan di file {1} dari {2} ({3})', label, x.index, x.count, x.name) : t('{0} dibatalkan: {1}', label, x.name));
+    if (x.state === 'done' || x.state === 'cancelled') {
+      setTimeout(() => { item!.el.remove(); this.xfers.delete(x.id); }, multi ? 2500 : 5000);
+      if (x.kind === 'upload' && this.pane?.sessionId === x.sessId && (x.index === x.count || x.state === 'cancelled')) this.refresh();
     }
   }
 }

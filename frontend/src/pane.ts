@@ -8,6 +8,7 @@ import { askPassword, Picker } from './picker';
 import { hooks, refreshState, store, type ProfileView } from './state';
 import { viewFor, type FileView } from './viewers';
 import { errMsg, h, openModal, toast } from './ui';
+import { t } from './i18n';
 
 export type PaneState = 'picker' | 'connecting' | 'connected' | 'reconnecting' | 'ended' | 'failed' | 'editor';
 
@@ -27,7 +28,7 @@ export class Pane {
   id = ++uid;
   el: HTMLDivElement;
   state: PaneState = 'picker';
-  title = 'Pilih server';
+  title = t('Pilih server');
   profile: ProfileView | null = null;
   sessionId = '';
   term: Terminal | null = null;
@@ -78,7 +79,7 @@ export class Pane {
       await ed.load();
       return true;
     } catch (e) {
-      toast(`Tidak bisa membuka ${ed.fileName}: ${errMsg(e)}`, 'error');
+      toast(t('Tidak bisa membuka {0}: {1}', ed.fileName, errMsg(e)), 'error');
       return false;
     }
   }
@@ -87,11 +88,11 @@ export class Pane {
   async canClose(): Promise<boolean> {
     if (!this.editor?.dirty) return true;
     const body = h('div', { class: 'modal-text' });
-    body.textContent = `Simpan perubahan pada "${this.editor.fileName}" sebelum ditutup?`;
-    const r = await openModal('Perubahan belum disimpan', body, [
-      { label: 'Batal', value: 'cancel' },
-      { label: 'Jangan simpan', value: 'discard', danger: true },
-      { label: 'Simpan', value: 'save', primary: true },
+    body.textContent = t('Simpan perubahan pada "{0}" sebelum ditutup?', this.editor.fileName);
+    const r = await openModal(t('Perubahan belum disimpan'), body, [
+      { label: t('Batal'), value: 'cancel' },
+      { label: t('Jangan simpan'), value: 'discard', danger: true },
+      { label: t('Simpan'), value: 'save', primary: true },
     ]);
     if (r === 'save') return this.editor.save();
     return r === 'discard';
@@ -105,7 +106,7 @@ export class Pane {
   showPicker() {
     this.teardownTerm();
     this.profile = null;
-    this.title = 'Pilih server';
+    this.title = t('Pilih server');
     this.el.innerHTML = '';
     this.picker = new Picker(p => this.start(p));
     this.el.append(this.picker.el);
@@ -187,10 +188,10 @@ export class Pane {
     const text = selectionText(this.term);
     if (!text) return;
     ClipboardSetText(text).then(ok => {
-      if (ok === false) { toast('Gagal menyalin ke clipboard', 'error'); return; }
+      if (ok === false) { toast(t('Gagal menyalin ke clipboard'), 'error'); return; }
       const lines = text.split('\r\n').length;
-      toast(lines > 1 ? `Copy berhasil (${lines} baris)` : 'Copy berhasil', 'success');
-    }).catch(() => toast('Gagal menyalin ke clipboard', 'error'));
+      toast(lines > 1 ? t('Copy berhasil ({0} baris)', lines) : t('Copy berhasil'), 'success');
+    }).catch(() => toast(t('Gagal menyalin ke clipboard'), 'error'));
   }
 
   async paste() {
@@ -232,7 +233,7 @@ export class Pane {
     this.title = p.name;
     if (!this.term) this.mountTerm();
     this.setState('connecting');
-    this.term!.write(`\x1b[90mMenghubungkan ke ${p.user}@${p.host}:${p.port} …\x1b[0m`);
+    this.term!.write(`\x1b[90m${t('Menghubungkan ke {0} …', `${p.user}@${p.host}:${p.port}`)}\x1b[0m`);
     await new Promise(r => setTimeout(r, 30)); // let fit settle
     const { cols, rows } = this.term!;
     try {
@@ -255,8 +256,8 @@ export class Pane {
         return this.start(p, r.password, r.save);
       }
       this.setState('failed');
-      this.status('Gagal konek: ' + errMsg(e), '31');
-      this.status('Enter = coba lagi · Esc = kembali ke daftar server');
+      this.status(t('Gagal konek: ') + errMsg(e), '31');
+      this.status(t('Enter = coba lagi · Esc = kembali ke daftar server'));
       this.failedRetry = () => { this.term!.write('\r\n'); this.start(p, password, false); };
     }
   }
@@ -281,7 +282,7 @@ export class Pane {
       this.setState('connected');
     } catch (e) {
       this.setState('failed');
-      this.status('Gagal konek: ' + errMsg(e), '31');
+      this.status(t('Gagal konek: ') + errMsg(e), '31');
       throw e;
     }
   }
@@ -293,20 +294,20 @@ export class Pane {
         this.setState('connected');
         break;
       case 'reconnecting':
-        this.badge.textContent = st.msg || 'Menyambung ulang…';
+        this.badge.textContent = st.msg || t('Menyambung ulang…');
         this.badge.classList.remove('hidden');
         this.setState('reconnecting');
         break;
       case 'exited':
         this.badge.classList.add('hidden');
         this.setState('ended');
-        this.status('[Sesi berakhir — Enter: sambung ulang · Ctrl+Shift+W: tutup]');
+        this.status(t('[Sesi berakhir — Enter: sambung ulang · Ctrl+Shift+W: tutup]'));
         break;
       case 'error':
         this.badge.classList.add('hidden');
         this.setState('ended');
         this.status(st.msg, '31');
-        this.status('[Enter: sambung ulang · Ctrl+Shift+W: tutup]');
+        this.status(t('[Enter: sambung ulang · Ctrl+Shift+W: tutup]'));
         break;
     }
   }
@@ -314,7 +315,7 @@ export class Pane {
   private async reconnect(password = ""): Promise<void> {
     if (!this.sessionId || !this.profile) return;
     this.setState('connecting');
-    this.status('Menyambung ulang…');
+    this.status(t('Menyambung ulang…'));
     try {
       await Reconnect(this.sessionId, password);
     } catch (e) {
@@ -322,10 +323,10 @@ export class Pane {
         const r = await askPassword(this.profile, errMsg(e));
         if (r) return this.reconnect(r.password);
       } else {
-        this.status('Gagal: ' + errMsg(e), '31');
+        this.status(t('Gagal: ') + errMsg(e), '31');
       }
       this.setState('ended');
-      this.status('[Enter: coba lagi · Ctrl+Shift+W: tutup]');
+      this.status(t('[Enter: coba lagi · Ctrl+Shift+W: tutup]'));
     }
   }
 
