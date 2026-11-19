@@ -34,16 +34,16 @@ func decryptSecret(stored string) (string, error) {
 		return "", nil
 	}
 	if !strings.HasPrefix(stored, secretPrefix) {
-		return "", errors.New("format password tersimpan tidak dikenal")
+		return "", errors.New(L("format password tersimpan tidak dikenal", "unknown saved password format"))
 	}
 	raw, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(stored, secretPrefix))
 	if err != nil || len(raw) == 0 {
-		return "", errors.New("password tersimpan rusak")
+		return "", errors.New(L("password tersimpan rusak", "saved password is corrupted"))
 	}
 	in := windows.DataBlob{Size: uint32(len(raw)), Data: &raw[0]}
 	var out windows.DataBlob
 	if err := windows.CryptUnprotectData(&in, nil, nil, 0, nil, windows.CRYPTPROTECT_UI_FORBIDDEN, &out); err != nil {
-		return "", errors.New("password tersimpan tidak bisa dibuka (dibuat oleh user Windows lain?)")
+		return "", errors.New(L("password tersimpan tidak bisa dibuka (dibuat oleh user Windows lain?)", "saved password cannot be opened (created by another Windows user?)"))
 	}
 	defer windows.LocalFree(windows.Handle(unsafe.Pointer(out.Data)))
 	return string(unsafe.Slice(out.Data, out.Size)), nil

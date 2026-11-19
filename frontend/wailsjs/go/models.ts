@@ -125,6 +125,7 @@ export namespace main {
 	    aiWidth: number;
 	    aiProvider: string;
 	    aiModels: Record<string, string>;
+	    language: string;
 	    skipUpdate: string;
 	    setupDone: boolean;
 	    editorWordWrap: boolean;
@@ -155,6 +156,7 @@ export namespace main {
 	        this.aiWidth = source["aiWidth"];
 	        this.aiProvider = source["aiProvider"];
 	        this.aiModels = source["aiModels"];
+	        this.language = source["language"];
 	        this.skipUpdate = source["skipUpdate"];
 	        this.setupDone = source["setupDone"];
 	        this.editorWordWrap = source["editorWordWrap"];
@@ -171,6 +173,7 @@ export namespace main {
 	    profiles: ProfileView[];
 	    configPath: string;
 	    configError: string;
+	    lang: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new AppState(source);
@@ -182,6 +185,7 @@ export namespace main {
 	        this.profiles = this.convertValues(source["profiles"], ProfileView);
 	        this.configPath = source["configPath"];
 	        this.configError = source["configError"];
+	        this.lang = source["lang"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -286,6 +290,68 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.path = source["path"];
 	        this.entries = this.convertValues(source["entries"], FileEntry);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class DonateLink {
+	    name: string;
+	    url: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DonateLink(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.url = source["url"];
+	    }
+	}
+	export class Donor {
+	    name: string;
+	    note?: string;
+	    date?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Donor(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.note = source["note"];
+	        this.date = source["date"];
+	    }
+	}
+	export class DonorInfo {
+	    links: DonateLink[];
+	    donors: Donor[];
+	
+	    static createFrom(source: any = {}) {
+	        return new DonorInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.links = this.convertValues(source["links"], DonateLink);
+	        this.donors = this.convertValues(source["donors"], Donor);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

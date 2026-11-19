@@ -448,3 +448,21 @@ input, select, textarea { font: inherit; color: var(--text); }
 .install-steps ol { padding-left: 20px; line-height: 1.6; }
 .install-steps .warn-step { color: #fde68a; }
 .install-btns { display: flex; gap: 8px; margin-top: 6px; }
+.about-bar { display: flex; align-items: center; gap: 10px; margin: 4px 0 10px; }
+.about-tabs .seg-btn { padding: 5px 12px; }
+.about-lang-row { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); }
+.about-lang { padding: 4px 6px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg); color: var(--text); }
+.about-history { max-height: 46vh; }
+.donate { min-height: 200px; }
+.donate-intro { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+.donate-heart { font-size: 26px; line-height: 1; color: #f472b6; }
+.donate-title { font-weight: 700; color: var(--text); margin-bottom: 3px; }
+.donate-links { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 6px; }
+.donate-btn { background: #db2777; border-color: #db2777; }
+.donate-btn:hover { background: #be185d; }
+.donor-list { display: flex; flex-wrap: wrap; gap: 6px; max-height: 30vh; overflow: auto; }
+.donor { display: inline-flex; align-items: baseline; gap: 6px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-3); }
+.donor-name { color: var(--text); font-weight: 600; }
+.donor-note { color: var(--text-2); font-size: 12px; }
+.donor-date { color: var(--text-3); font-size: 11px; }
+.donate-foot { margin-top: 10px; font-size: 12px; }

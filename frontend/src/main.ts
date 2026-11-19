@@ -9,6 +9,7 @@ import { Layout } from './layout';
 import { Sidebar } from './sidebar';
 import { hooks, refreshState, store } from './state';
 import { h, openModal, toast } from './ui';
+import { t } from './i18n';
 
 interface HostKeyPrompt { reqId: string; host: string; keyType: string; fingerprint: string; changed: boolean }
 
@@ -31,15 +32,13 @@ async function boot() {
   EventsOn('hostkey', async (p: HostKeyPrompt) => {
     const body = h('div', { class: 'modal-text' });
     body.innerHTML = p.changed
-      ? `<p class="warn"><b>PERINGATAN: host key server <code></code> BERUBAH.</b></p>
-         <p>Ini bisa berarti server di-install ulang, atau ada pihak yang menyadap koneksi (man-in-the-middle).
-         Terima hanya jika Anda yakin perubahan ini wajar.</p>`
-      : `<p>Pertama kali terhubung ke <code></code>.</p><p>Pastikan fingerprint ini milik server Anda.</p>`;
+      ? t('<p class="warn"><b>PERINGATAN: host key server <code></code> BERUBAH.</b></p><p>Ini bisa berarti server di-install ulang, atau ada pihak yang menyadap koneksi (man-in-the-middle). Terima hanya jika Anda yakin perubahan ini wajar.</p>')
+      : t('<p>Pertama kali terhubung ke <code></code>.</p><p>Pastikan fingerprint ini milik server Anda.</p>');
     body.querySelector('code')!.textContent = p.host;
     body.append(h('div', { class: 'fingerprint' }, `${p.keyType}\n${p.fingerprint}`));
-    const r = await openModal(p.changed ? 'Host key berubah' : 'Server baru', body, [
-      { label: 'Tolak', value: 'no' },
-      { label: p.changed ? 'Terima kunci baru' : 'Percaya & lanjutkan', value: 'yes', primary: !p.changed, danger: p.changed },
+    const r = await openModal(p.changed ? t('Host key berubah') : t('Server baru'), body, [
+      { label: t('Tolak'), value: 'no' },
+      { label: p.changed ? t('Terima kunci baru') : t('Percaya & lanjutkan'), value: 'yes', primary: !p.changed, danger: p.changed },
     ]);
     HostKeyAnswer(p.reqId, r === 'yes');
   });

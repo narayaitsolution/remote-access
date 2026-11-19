@@ -52,6 +52,8 @@ export function GetAppLocation():Promise<main.AppLocation>;
 
 export function GetChangelog():Promise<string>;
 
+export function GetDonors():Promise<main.DonorInfo>;
+
 export function GetState():Promise<main.AppState>;
 
 export function GetVersion():Promise<string>;
@@ -91,6 +93,8 @@ export function Remove(arg1:string,arg2:Array<string>):Promise<void>;
 export function Rename(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function Resize(arg1:string,arg2:number,arg3:number):Promise<void>;
+
+export function RestartApp():Promise<void>;
 
 export function RunHidden(arg1:string,arg2:string,arg3:number):Promise<string>;
 

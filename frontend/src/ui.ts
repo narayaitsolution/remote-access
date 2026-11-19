@@ -1,4 +1,5 @@
 // Generic UI helpers: modal dialogs, context menu, toast.
+import { t } from './i18n';
 
 export function h<K extends keyof HTMLElementTagNameMap>(
   tag: K, attrs: Record<string, any> = {}, ...children: (Node | string | null | undefined)[]
@@ -76,7 +77,7 @@ export async function promptText(title: string, label: string, value = '', selec
       input.setSelectionRange(0, dot > 0 ? dot : value.length);
     }, 10);
   }
-  const r = await openModal(title, body, [{ label: 'Batal', value: 'cancel' }, { label: 'OK', value: 'ok', primary: true }]);
+  const r = await openModal(title, body, [{ label: t('Batal'), value: 'cancel' }, { label: 'OK', value: 'ok', primary: true }]);
   if (r !== 'ok') return null;
   return input.value.trim() || null;
 }
@@ -85,7 +86,7 @@ export async function confirmDialog(title: string, message: string, okLabel = 'O
   const body = h('div', { class: 'modal-text' });
   body.textContent = message;
   const r = await openModal(title, body, [
-    { label: 'Batal', value: 'cancel' },
+    { label: t('Batal'), value: 'cancel' },
     { label: okLabel, value: 'ok', primary: true, danger },
   ]);
   return r === 'ok';

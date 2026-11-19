@@ -79,7 +79,7 @@ func (a *App) hostKeyCallback() ssh.HostKeyCallback {
 			Host: hostname, KeyType: key.Type(), Fingerprint: ssh.FingerprintSHA256(key), Changed: changed,
 		})
 		if !ok {
-			return errors.New("host key ditolak")
+			return errors.New(L("host key ditolak", "host key rejected"))
 		}
 		a.hostMu.Lock()
 		defer a.hostMu.Unlock()

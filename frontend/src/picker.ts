@@ -4,6 +4,7 @@ import { main } from '../wailsjs/go/models';
 import { icons } from './icons';
 import { refreshState, store, type ProfileView } from './state';
 import { confirmDialog, errMsg, h, openModal, toast } from './ui';
+import { t } from './i18n';
 
 export class Picker {
   el: HTMLElement;
@@ -14,15 +15,15 @@ export class Picker {
   private unsub: () => void;
 
   constructor(private onConnect: (p: ProfileView) => void) {
-    this.search = h('input', { class: 'picker-search', type: 'text', placeholder: 'Cari server…', spellcheck: 'false' });
+    this.search = h('input', { class: 'picker-search', type: 'text', placeholder: t('Cari server…'), spellcheck: 'false' });
     this.list = h('div', { class: 'picker-list', tabindex: '-1' });
-    const newBtn = h('button', { class: 'btn primary', html: icons.plus + '<span>Server baru</span>', onclick: () => this.edit(null) });
+    const newBtn = h('button', { class: 'btn primary', html: icons.plus + `<span>${t('Server baru')}</span>`, onclick: () => this.edit(null) });
     this.el = h('div', { class: 'picker' },
       h('div', { class: 'picker-card' },
-        h('div', { class: 'picker-head' }, h('div', { class: 'picker-title' }, 'Pilih server'), newBtn),
+        h('div', { class: 'picker-head' }, h('div', { class: 'picker-title' }, t('Pilih server')), newBtn),
         this.search,
         this.list,
-        h('div', { class: 'picker-hint' }, '↑↓ pilih · Enter konek · Ctrl+N server baru · Ctrl+E edit · Del hapus')));
+        h('div', { class: 'picker-hint' }, t('↑↓ pilih · Enter konek · Ctrl+N server baru · Ctrl+E edit · Del hapus'))));
     this.search.addEventListener('input', () => { this.sel = 0; this.render(); });
     this.el.addEventListener('keydown', e => this.onKey(e));
     const f = () => this.render();
@@ -50,11 +51,11 @@ export class Picker {
     if (this.sel >= this.shown.length) this.sel = Math.max(0, this.shown.length - 1);
     this.list.innerHTML = '';
     if (store.profiles.length === 0) {
-      this.list.append(h('div', { class: 'picker-empty' }, 'Belum ada server. Klik "Server baru" untuk menambahkan.'));
+      this.list.append(h('div', { class: 'picker-empty' }, t('Belum ada server. Klik "Server baru" untuk menambahkan.')));
       return;
     }
     if (this.shown.length === 0) {
-      this.list.append(h('div', { class: 'picker-empty' }, 'Tidak ada yang cocok.'));
+      this.list.append(h('div', { class: 'picker-empty' }, t('Tidak ada yang cocok.')));
       return;
     }
     this.shown.forEach((p, i) => {
@@ -65,13 +66,13 @@ export class Picker {
         h('div', { class: 'picker-text' },
           h('div', { class: 'picker-name' }, p.name),
           h('div', { class: 'picker-sub' }, `${p.user}@${p.host}${p.port !== 22 ? ':' + p.port : ''}` +
-            (p.tmuxSession ? `  · tmux: ${p.tmuxSession}` : '') + (p.authType === 'key' ? `  · key: ${p.keyPath.split(/[\\/]/).pop()}` : p.hasPassword ? '' : '  · password ditanya'))),
+            (p.tmuxSession ? `  · tmux: ${p.tmuxSession}` : '') + (p.authType === 'key' ? `  · key: ${p.keyPath.split(/[\\/]/).pop()}` : p.hasPassword ? '' : t('  · password ditanya')))),
         h('div', { class: 'picker-actions' },
-          act(icons.arrowUp, 'Pindah ke atas', () => MoveProfile(p.id, -1).then(refreshState)),
-          act(icons.arrowDown, 'Pindah ke bawah', () => MoveProfile(p.id, 1).then(refreshState)),
+          act(icons.arrowUp, t('Pindah ke atas'), () => MoveProfile(p.id, -1).then(refreshState)),
+          act(icons.arrowDown, t('Pindah ke bawah'), () => MoveProfile(p.id, 1).then(refreshState)),
           act(icons.edit, 'Edit', () => this.edit(p)),
-          act(icons.copy, 'Duplikat', () => this.edit({ ...p, id: '', name: p.name + ' (salinan)', hasPassword: false })),
-          act(icons.del, 'Hapus', () => this.remove(p))));
+          act(icons.copy, t('Duplikat'), () => this.edit({ ...p, id: '', name: p.name + t(' (salinan)'), hasPassword: false })),
+          act(icons.del, t('Hapus'), () => this.remove(p))));
       row.addEventListener('click', () => { this.sel = i; this.render(); this.search.focus(); });
       row.addEventListener('dblclick', () => this.onConnect(p));
       this.list.append(row);
@@ -80,7 +81,7 @@ export class Picker {
   }
 
   private async remove(p: ProfileView) {
-    if (await confirmDialog('Hapus server', `Hapus profil "${p.name}"?`, 'Hapus', true)) {
+    if (await confirmDialog(t('Hapus server'), t('Hapus profil "{0}"?', p.name), t('Hapus'), true)) {
       await DeleteProfile(p.id);
       await refreshState();
     }
@@ -101,8 +102,8 @@ export async function editProfile(p: ProfileView | null): Promise<ProfileView | 
   const isEdit = !!p?.id;
   const f = (label: string | Node, input: HTMLElement, hint?: string) =>
     h('label', {}, label, input, hint ? h('small', {}, hint) : null);
-  const name = h('input', { type: 'text', value: p?.name ?? '', placeholder: 'contoh: Server Produksi' });
-  const host = h('input', { type: 'text', value: p?.host ?? '', placeholder: 'IP atau hostname', spellcheck: 'false' });
+  const name = h('input', { type: 'text', value: p?.name ?? '', placeholder: t('contoh: Server Produksi') });
+  const host = h('input', { type: 'text', value: p?.host ?? '', placeholder: t('IP atau hostname'), spellcheck: 'false' });
   const port = h('input', { type: 'number', value: String(p?.port ?? 22), min: '1', max: '65535' });
   const user = h('input', { type: 'text', value: p?.user ?? '', spellcheck: 'false' });
 
@@ -116,9 +117,9 @@ export async function editProfile(p: ProfileView | null): Promise<ProfileView | 
   const browse = h('button', { type: 'button', class: 'btn', onclick: async () => {
     const f = await PickKeyFile().catch(() => '');
     if (f) keyPath.value = f;
-  } }, 'Pilih…');
-  const keyRow = h('label', {}, 'File private key', h('div', { class: 'input-row' }, keyPath, browse),
-    h('small', {}, 'Format OpenSSH/PEM (id_rsa, id_ed25519, …). File .ppk perlu di-export ke OpenSSH dulu lewat PuTTYgen.'));
+  } }, t('Pilih…'));
+  const keyRow = h('label', {}, t('File private key'), h('div', { class: 'input-row' }, keyPath, browse),
+    h('small', {}, t('Format OpenSSH/PEM (id_rsa, id_ed25519, …). File .ppk perlu di-export ke OpenSSH dulu lewat PuTTYgen.')));
   const passLabel = h('span', {});
   const pass = h('input', { type: 'password' });
   const save = h('input', { type: 'checkbox', checked: p ? p.hasPassword : true });
@@ -129,31 +130,31 @@ export async function editProfile(p: ProfileView | null): Promise<ProfileView | 
     keyRow.classList.toggle('hidden', auth !== 'key');
     const stored = p?.hasPassword && auth === origAuth;
     if (auth === 'key') {
-      passLabel.textContent = 'Passphrase key (kosongkan jika key tidak dipassword)';
-      saveLabel.textContent = 'Simpan passphrase (terenkripsi untuk user Windows ini)';
+      passLabel.textContent = t('Passphrase key (kosongkan jika key tidak dipassword)');
+      saveLabel.textContent = t('Simpan passphrase (terenkripsi untuk user Windows ini)');
     } else {
       passLabel.textContent = 'Password';
-      saveLabel.textContent = 'Simpan password (terenkripsi untuk user Windows ini)';
+      saveLabel.textContent = t('Simpan password (terenkripsi untuk user Windows ini)');
     }
-    pass.placeholder = stored ? '(tersimpan — kosongkan agar tidak berubah)' : '';
+    pass.placeholder = stored ? t('(tersimpan — kosongkan agar tidak berubah)') : '';
   };
   syncAuth();
 
-  const tmux = h('input', { type: 'text', value: p?.tmuxSession ?? '', placeholder: 'kosong = shell biasa', spellcheck: 'false' });
+  const tmux = h('input', { type: 'text', value: p?.tmuxSession ?? '', placeholder: t('kosong = shell biasa'), spellcheck: 'false' });
   const err = h('div', { class: 'form-error' });
   const body = h('div', { class: 'form' },
-    f('Nama', name),
+    f(t('Nama'), name),
     h('div', { class: 'form-row' }, f('Host', host), f('Port', port)),
     f('User', user),
-    h('label', {}, 'Metode login', h('div', { class: 'seg' }, btnPw, btnKey)),
+    h('label', {}, t('Metode login'), h('div', { class: 'seg' }, btnPw, btnKey)),
     keyRow,
     f(passLabel, pass),
     h('label', { class: 'check' }, save, saveLabel),
-    f('Sesi tmux otomatis (opsional)', tmux, 'Jika diisi, saat konek langsung masuk/membuat sesi tmux dengan nama ini.'),
+    f(t('Sesi tmux otomatis (opsional)'), tmux, t('Jika diisi, saat konek langsung masuk/membuat sesi tmux dengan nama ini.')),
     err);
   let result: ProfileView | null = null;
-  const r = await openModal(isEdit ? 'Edit server' : 'Server baru', body,
-    [{ label: 'Batal', value: 'cancel' }, { label: 'Simpan', value: 'ok', primary: true }],
+  const r = await openModal(isEdit ? t('Edit server') : t('Server baru'), body,
+    [{ label: t('Batal'), value: 'cancel' }, { label: t('Simpan'), value: 'ok', primary: true }],
     async v => {
       if (v !== 'ok') return true;
       try {
@@ -169,7 +170,7 @@ export async function editProfile(p: ProfileView | null): Promise<ProfileView | 
         return false;
       }
     });
-  if (r === 'ok' && result) toast('Server disimpan', 'success');
+  if (r === 'ok' && result) toast(t('Server disimpan'), 'success');
   return r === 'ok' ? result : null;
 }
 
@@ -180,10 +181,10 @@ export async function askPassword(p: ProfileView, error = ''): Promise<{ passwor
   const save = h('input', { type: 'checkbox' });
   const body = h('div', { class: 'form' },
     error ? h('div', { class: 'form-error' }, error) : null,
-    h('label', {}, isKey ? `Passphrase untuk key ${p.keyPath.split(/[\/]/).pop()}` : `Password untuk ${p.user}@${p.host}`, pass),
-    h('label', { class: 'check' }, save, isKey ? 'Simpan passphrase (terenkripsi)' : 'Simpan password (terenkripsi)'));
+    h('label', {}, isKey ? t('Passphrase untuk key {0}', p.keyPath.split(/[\/]/).pop() ?? '') : t('Password untuk {0}', `${p.user}@${p.host}`), pass),
+    h('label', { class: 'check' }, save, isKey ? t('Simpan passphrase (terenkripsi)') : t('Simpan password (terenkripsi)')));
   const r = await openModal('Login', body,
-    [{ label: 'Batal', value: 'cancel' }, { label: 'Konek', value: 'ok', primary: true }]);
+    [{ label: t('Batal'), value: 'cancel' }, { label: t('Konek'), value: 'ok', primary: true }]);
   if (r !== 'ok') return null;
   return { password: pass.value, save: save.checked };
 }

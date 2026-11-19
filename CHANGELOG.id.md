@@ -3,6 +3,12 @@
 Fitur baru menaikkan angka utama (mis. 10.0 → 11.0); perbaikan dan perubahan kecil menaikkan angka di belakang titik (mis. 8.1 → 8.2).
 Bagian setiap versi di file ini ditampilkan di jendela Informasi aplikasi dan di jendela update.
 
+## 11.1
+- **Pilihan bahasa**: aplikasi kini tersedia dalam Bahasa Indonesia dan English. Bawaannya mengikuti bahasa Windows; bisa diganti di jendela Informasi (ⓘ → *Bahasa*). Bahasa baru dipakai setelah aplikasi dibuka ulang, dan aplikasi menawarkan untuk membuka ulang saat itu juga.
+- **Donasi**: tab baru *♥ Donasi* di jendela Informasi berisi tautan donasi (Lynk.id) dan daftar donatur sebagai ucapan terima kasih. Daftar donatur diambil dari GitHub, jadi bisa bertambah tanpa menunggu versi baru.
+- Jendela Informasi kini memakai tab: *Fitur*, *Riwayat versi*, dan *Donasi*.
+- **Ikon baru**: prompt terminal `>` dengan sinyal Wi-Fi sebagai kursor — langsung terlihat sebagai aplikasi remote access.
+
 ## 11.0
 - **Blok & copy di semua terminal**: drag untuk memblok teks dan teks langsung tersalin, kini juga di terminal biasa (tanpa tmux), bukan hanya di tmux.
 - **Klik mouse ke program di layar**: klik pada tab, tombol, dan menu program seperti opencode, htop, mc atau panel tmux kini sampai ke program tersebut. Drag atau klik ganda tetap memblok dan menyalin teks.

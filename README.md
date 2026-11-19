@@ -1,6 +1,6 @@
 # Remote Terminal
 
-**Current version: 11.0** — click ⓘ in the app to see the version, all features and the version history. — see [Version history](#version-history).
+**Current version: 11.1** — click ⓘ in the app to see the version, all features and the version history. — see [Version history](#version-history).
 
 A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a focused alternative to MobaXterm for people who mostly live in `ssh` + `tmux`.
 
@@ -17,9 +17,18 @@ A lightweight, portable SSH terminal with an SFTP file sidebar for Windows — a
 - The file is always named `RemoteTerminal.exe` (no version in the name), so updating is just replacing that one file. The version is shown in the **Information** window (ⓘ in the top bar) and in the window title.
 
 ### Information window and updates
-- **ⓘ in the top bar** opens a window in the middle of the screen with the app version, every feature (with the version that introduced it) and the full version history in Indonesian, plus a **Check for update** button.
+- **ⓘ in the top bar** opens a window in the middle of the screen with the app version and three tabs — **Features** (every feature with the version that introduced it), **Version history** and **♥ Donate** — plus the **Language** choice and a **Check for update** button.
 - **At start-up the app checks GitHub Releases for a newer version in the background.** If there is none, or there is no internet / GitHub cannot be reached, nothing is shown. If there is one, a window lists what is new and offers **Update** or **Skip** (*Skip* = don't offer this version again at start-up; it can still be installed from the Information window).
 - **Update** downloads the new `RemoteTerminal.exe` into your **Downloads** folder (with a progress bar) and then explains how to install it: close the app, move the new file into the app's folder replacing the old one, and **do not delete `config.toml` and `known_hosts`** — they hold your saved servers, encrypted passwords and settings. Buttons open the Downloads folder and the app folder. The running app is never replaced automatically.
+
+### Language
+- The app is available in **Indonesian** and **English**. By default it follows the Windows display language (Indonesian Windows → Indonesian, anything else → English).
+- Change it in the Information window (ⓘ → **Language**: *Follow Windows*, *Bahasa Indonesia* or *English*). The choice is stored as `language` in `config.toml` and applies after the app is reopened; the app offers to reopen right away (open terminal connections are closed, and it asks you to save unsaved editor files first).
+- The AI assistant answers in the language you write in, whatever the UI language.
+
+### Donations
+- Remote Terminal is free and open source. The **♥ Donate** tab in the Information window links to the donation page ([Lynk.id](https://lynk.id/narayait/nxy5vvy8xwlw)) and thanks the donors by name.
+- The links and the donor list come from [`donors.json`](donors.json) in this repository, read from GitHub when the Information window is opened (the copy built into the app is used offline), so a new donor appears without a new release. Format: `{"links": [{"name", "url"}], "donors": [{"name", "note"?, "date"?}]}`; only `https://` links are shown.
 
 ### Server picker
 - Every new tab or split opens a server list, like MobaXterm's start page.
@@ -190,6 +199,7 @@ Created automatically on first start. You can edit it with any text editor while
   font_size = 14
   scrollback = 10000
   copy_on_select = true
+  language = ""              # "" = follow the Windows language, "id" = Indonesian, "en" = English (applies after reopening)
   skip_update_version = ""   # an update you chose to skip at start-up (set by the Skip button)
   sidebar_visible = true
   sidebar_width = 300
@@ -304,6 +314,8 @@ go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.1   # once; puts wails i
 | `version.go` | Application version |
 | `build.ps1` | Builds `build\bin\RemoteTerminal.exe` |
 | `update.go`, `frontend/src/about.ts` | Update check/download (GitHub Releases) and the Information window |
+| `i18n.go`, `lang_*.go`, `frontend/src/i18n.ts`, `i18n-en.ts` | UI language: texts are written in Indonesian and wrapped in `L(id, en)` (Go) or `t('…')` (UI, English in `i18n-en.ts`); Windows language detection |
+| `donors.go`, `donors.json` | Donation links and donor list for the Information window (read from GitHub, built-in copy as fallback) |
 | `CHANGELOG.id.md` | Version history in Indonesian, embedded in the app and copied into the release notes |
 | `.github/workflows/build.yml` | CI: tests + build on every push; publishes the `.exe` to Releases for `v*` tags |
 | `assets/icon.svg`, `assets/icon-source.png`, `tools/mkicon` | App icon source; `go run ./tools/mkicon assets/icon-source.png` writes `build/appicon.png` and `build/windows/icon.ico` |
@@ -314,6 +326,7 @@ Versioning scheme: the **major** number goes up when a new feature is added; the
 
 | Version | Type | Changes |
 |---|---|---|
+| **11.1** | Minor | UI language: Indonesian and English, following the Windows display language by default and selectable in the Information window (new `language` setting, applied after reopening; the app can reopen itself); English version history and update notes in English mode; **♥ Donate** tab in the Information window with the donation link and the donor list from `donors.json` (fetched from GitHub, so donors are added without a release); the Information window now has tabs (Features · Version history · Donate); new app icon: the terminal prompt `>` ends in a Wi-Fi signal instead of a cursor |
 | **11.0** | Feature | Drag-to-select and auto-copy now also work in a plain shell (not only in tmux); plain clicks reach programs that use the mouse (opencode tabs and close buttons, htop, tmux panes) while drags still select; upload/download progress per file; Information window (ⓘ) with version, features and Indonesian version history; background update check at start-up with *Update* (downloads `RemoteTerminal.exe` to Downloads with install steps that keep `config.toml`) or *Skip*; the executable is now always `RemoteTerminal.exe` (no version in the name); the *auto-allow read/change* checkboxes were removed from the AI Sidebar (agent mode replaces them); new `skip_update_version` setting |
 | **10.0** | Feature | **Agent mode** in the AI Sidebar: the AI does a task end to end on the screen (finds the file, opens it in an editor tab, edits it with highlighted changes, tests it, fixes errors up to 5 rounds, reports); hands large tasks to opencode/Claude Code/Codex shown on screen or opens a new terminal tab when the screen is busy; actions approved automatically except risky ones; new tools `open_file`, `edit_file`, `open_terminal`, `use_terminal`; new `ai_agent_mode` setting. AI Companion: Copilot-style grey inline code suggestions in the editor, turned on/off with the new *AI Companion* button in the top bar; to save tokens a suggestion is requested only with `Alt+\` (`Tab` accepts) and sends the code around the cursor plus an outline of the rest of the file (imports and nearby signatures, about 1,000–1,500 tokens); the *AI* button is renamed *AI Sidebar*; works with OpenAI-compatible APIs, Claude Code or Codex, with its own provider/model choice; status shown in the editor status bar; new `ai_companion`, `ai_companion_provider`, `ai_companion_model` settings |
 | **9.0** | Feature | Code editing like VS Code for Python, PHP, Java, Go, C/C++, C#, Ruby, Rust, Kotlin, shell, SQL and more: keyword/built-in autocomplete, Tab snippets, language picker in the status bar (`Ctrl+K M`), *Format* (`Shift+Alt+F`), command palette (`F1`), word wrap toggle (`Alt+Z`), sticky scroll and folding; minimap removed; new `editor_word_wrap` and `editor_tab_size` settings; README is English-only and points to `config.toml` for the full configuration |

@@ -142,3 +142,26 @@ func TestDownloadUpdateLive(t *testing.T) {
 		t.Fatalf("temporary files left: %v", left)
 	}
 }
+
+func TestEnglishNotesAndChangelog(t *testing.T) {
+	uiLang.Store("en")
+	defer uiLang.Store("id")
+	body := "## Remote Terminal 11.1\n\n<!-- notes-id -->\n- Fitur A\n<!-- /notes-id -->\n\nLanguage choice\n\n**Download:** x"
+	if got := releaseNotes(body); got != "Language choice" {
+		t.Errorf("English notes = %q", got)
+	}
+	cl := changelogFromReadme(readmeMD)
+	if !strings.Contains(cl, "\n## "+appVersion+"\n") || !strings.Contains(cl, "\n## 1.0\n") {
+		t.Errorf("README changelog lacks versions:\n%.300s", cl)
+	}
+}
+
+func TestDonorsFile(t *testing.T) {
+	d, ok := parseDonors(donorsEmbedded)
+	if !ok || len(d.Links) == 0 {
+		t.Fatalf("donors.json invalid or without a link: %+v", d)
+	}
+	if d, _ := parseDonors([]byte(`{"links":[{"name":"x","url":"javascript:alert(1)"}]}`)); len(d.Links) != 0 || d.Donors == nil {
+		t.Errorf("unsafe link kept: %+v", d)
+	}
+}

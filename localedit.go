@@ -57,7 +57,7 @@ func (a *App) EditLocally(id, remote string) (LocalEdit, error) {
 	}
 	app := associatedApp(path.Ext(remote))
 	if app == "" {
-		return LocalEdit{}, fmt.Errorf("noapp:Tidak ada aplikasi di Windows untuk membuka file %s", path.Ext(remote))
+		return LocalEdit{}, fmt.Errorf(L("noapp:Tidak ada aplikasi di Windows untuk membuka file %s", "noapp:No Windows application can open %s files"), path.Ext(remote))
 	}
 	data, err := s.readBinary(remote)
 	if err != nil {
@@ -73,7 +73,7 @@ func (a *App) EditLocally(id, remote string) (LocalEdit, error) {
 	}
 	if err := shellOpen(local); err != nil {
 		os.RemoveAll(dir)
-		return LocalEdit{}, fmt.Errorf("gagal membuka %s: %w", filepath.Base(local), err)
+		return LocalEdit{}, fmt.Errorf(L("gagal membuka %s: %w", "failed to open %s: %w"), filepath.Base(local), err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	e := &LocalEdit{ID: newID(), Session: id, Remote: remote, Name: path.Base(remote), App: app,
@@ -120,7 +120,7 @@ func (a *App) syncLocal(e *LocalEdit) {
 	err := func() error {
 		s, err := a.session(e.Session)
 		if err != nil {
-			return errors.New("terminal untuk file ini sudah ditutup")
+			return errors.New(L("terminal untuk file ini sudah ditutup", "the terminal for this file was closed"))
 		}
 		c, err := s.getSFTP()
 		if err != nil {
