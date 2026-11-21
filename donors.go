@@ -11,8 +11,9 @@ import (
 )
 
 // donors.json lists where to donate and the people who did. The app reads the
-// current file from GitHub, so a new donor shows up without a new release; the
-// copy built into the app is used when GitHub cannot be reached.
+// current file from GitHub each time the Donate tab opens, so a new donor shows
+// up without a new release. Donor names are never kept in the app: the copy
+// built in only supplies the donation links when GitHub cannot be reached.
 //
 //go:embed donors.json
 var donorsEmbedded []byte
@@ -33,6 +34,7 @@ type Donor struct {
 type DonorInfo struct {
 	Links  []DonateLink `json:"links"`
 	Donors []Donor      `json:"donors"`
+	Online bool         `json:"online"` // false: GitHub unreachable, donor list unknown
 }
 
 func parseDonors(data []byte) (DonorInfo, bool) {
@@ -63,11 +65,13 @@ func (a *App) GetDonors() DonorInfo {
 			resp.Body.Close()
 			if resp.StatusCode == 200 {
 				if d, ok := parseDonors(data); ok {
+					d.Online = true
 					return d
 				}
 			}
 		}
 	}
 	d, _ := parseDonors(donorsEmbedded)
+	d.Donors = []Donor{}
 	return d
 }

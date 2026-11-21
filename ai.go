@@ -40,6 +40,8 @@ type aiChat struct {
 	// OpenAI-compatible providers: conversation kept here, cancel stops the loop.
 	history []map[string]any
 	cancel  context.CancelFunc
+	// Antigravity: the running `agy acp` connection (one per chat).
+	acp *acpConn
 }
 
 type aiState struct {
@@ -302,6 +304,7 @@ func (a *App) AIProviders() []AIProviderInfo {
 			Models: []string{"opus", "sonnet", "haiku", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-2"}, DefaultModel: "sonnet"},
 		{ID: "codex", Name: "Codex", Installed: codex != "", Path: codex, Kind: "cli",
 			Models: codexModels, DefaultModel: firstNonEmpty(codexDefault, codexModels[0])},
+		antigravityInfo(),
 	}
 	return append(list, a.openAIProviderInfos()...)
 }
@@ -427,10 +430,16 @@ func (a *App) AISend(chatID, provider, model, text, context string) error {
 		c = &aiChat{id: chatID}
 		a.ai.chats[chatID] = c
 	}
+	switched := c.provider != "" && c.provider != provider
 	if c.provider != provider {
 		c.session, c.history = "", nil // a conversation cannot move between providers
 	}
 	restart := c.running && (c.provider != provider || c.model != model || c.context != context)
+	if switched && c.acp != nil {
+		a.ai.mu.Unlock()
+		a.stopChat(c)
+		a.ai.mu.Lock()
+	}
 	c.provider, c.model, c.context = provider, model, context
 	a.ai.mu.Unlock()
 
@@ -450,6 +459,8 @@ func (a *App) AISend(chatID, provider, model, text, context string) error {
 		return err
 	case "codex":
 		return a.runCodex(c, text)
+	case "antigravity":
+		return a.runAntigravity(c, text)
 	}
 	if strings.HasPrefix(provider, oaPrefix) {
 		if c.history != nil && len(c.history) > 0 && c.context != context {
@@ -641,11 +652,14 @@ func (a *App) captureSession(c *aiChat, line string) {
 
 func (a *App) stopChat(c *aiChat) {
 	a.ai.mu.Lock()
-	cmd, cancel := c.cmd, c.cancel
-	c.running, c.cmd, c.stdin, c.cancel = false, nil, nil, nil
+	cmd, cancel, acp := c.cmd, c.cancel, c.acp
+	c.running, c.cmd, c.stdin, c.cancel, c.acp = false, nil, nil, nil, nil
 	a.ai.mu.Unlock()
 	if cancel != nil {
 		cancel()
+	}
+	if acp != nil {
+		acp.kill()
 	}
 	if cmd != nil && cmd.Process != nil {
 		killTree(cmd)
@@ -658,7 +672,10 @@ func (a *App) AIStop(chatID string) {
 	c := a.ai.chats[chatID]
 	a.ai.mu.Unlock()
 	if c != nil {
-		a.stopChat(c)
+		// Antigravity keeps its process and conversation; only the turn stops.
+		if c.provider != "antigravity" || !a.cancelAntigravity(c) {
+			a.stopChat(c)
+		}
 		a.emit("ai:state:"+chatID, map[string]any{"running": false, "stopped": true})
 	}
 }
@@ -666,6 +683,12 @@ func (a *App) AIStop(chatID string) {
 // AIReset forgets the conversation (new chat).
 func (a *App) AIReset(chatID string) {
 	a.AIStop(chatID)
+	a.ai.mu.Lock()
+	c := a.ai.chats[chatID]
+	a.ai.mu.Unlock()
+	if c != nil {
+		a.stopChat(c) // also ends an Antigravity process
+	}
 	a.ai.mu.Lock()
 	delete(a.ai.chats, chatID)
 	a.ai.mu.Unlock()

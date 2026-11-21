@@ -2,7 +2,7 @@ package main
 
 // Live tests against the real AI CLIs (they use the logged-in account and a
 // little quota). Run with:  RT_AI_TEST=claude go test -run TestAILive -v
-// or RT_AI_TEST=codex.
+// or RT_AI_TEST=codex / RT_AI_TEST=antigravity.
 
 import (
 	"os"
@@ -17,7 +17,7 @@ func TestAILive(t *testing.T) {
 	if provider == "" {
 		t.Skip("set RT_AI_TEST=claude or RT_AI_TEST=codex to run")
 	}
-	model := map[string]string{"claude": "haiku"}[provider]
+	model := map[string]string{"claude": "haiku", "antigravity": "gemini-3.8-flash-low"}[provider]
 	a := NewApp()
 	var mu sync.Mutex
 	var lines []string
@@ -55,7 +55,7 @@ func TestAILive(t *testing.T) {
 		mu.Lock()
 		all := strings.Join(lines, "\n")
 		mu.Unlock()
-		finished := strings.Contains(all, `"type":"result"`) || strings.Contains(all, `"turn.completed"`)
+		finished := strings.Contains(all, `"type":"result"`) || strings.Contains(all, `"turn.completed"`) || strings.Contains(all, `"agy.done"`)
 		if finished {
 			mu.Lock()
 			calls := toolCalls
@@ -63,7 +63,7 @@ func TestAILive(t *testing.T) {
 			if calls == 0 {
 				t.Fatalf("AI never called the tool. Output:\n%s", all)
 			}
-			if !strings.Contains(all, "7731") {
+			if !strings.Contains(all, "7731") && !strings.Contains(agyText(all), "7731") {
 				t.Fatalf("answer missing MAGIC number. Output:\n%s", all)
 			}
 			a.shutdownAI()
@@ -74,7 +74,7 @@ func TestAILive(t *testing.T) {
 			mu.Lock()
 			all = strings.Join(lines, "\n")
 			mu.Unlock()
-			if !strings.Contains(all, `"type":"result"`) && !strings.Contains(all, `"turn.completed"`) {
+			if !strings.Contains(all, `"type":"result"`) && !strings.Contains(all, `"turn.completed"`) && !strings.Contains(all, `"agy.done"`) {
 				t.Fatalf("CLI exited early. Output:\n%s", all)
 			}
 		case <-deadline:
@@ -90,7 +90,7 @@ func TestAIChatNoTools(t *testing.T) {
 	if provider == "" {
 		t.Skip("set RT_AI_TEST=claude or RT_AI_TEST=codex to run")
 	}
-	model := map[string]string{"claude": "haiku"}[provider]
+	model := map[string]string{"claude": "haiku", "antigravity": "gemini-3.8-flash-low"}[provider]
 	a := NewApp()
 	var mu sync.Mutex
 	var lines []string
@@ -116,11 +116,11 @@ func TestAIChatNoTools(t *testing.T) {
 		all := strings.Join(lines, "\n")
 		n := tools
 		mu.Unlock()
-		if strings.Contains(all, `"type":"result"`) || strings.Contains(all, `"turn.completed"`) {
+		if strings.Contains(all, `"type":"result"`) || strings.Contains(all, `"turn.completed"`) || strings.Contains(all, `"agy.done"`) {
 			if n != 0 {
 				t.Fatalf("plain chat question triggered %d tool call(s)", n)
 			}
-			if !strings.Contains(all, "Secure Shell") {
+			if !strings.Contains(all, "Secure Shell") && !strings.Contains(agyText(all), "Secure Shell") {
 				t.Fatalf("unexpected answer:\n%s", all)
 			}
 			return
@@ -137,7 +137,7 @@ func TestAIDoesNotTypeIntoForegroundApp(t *testing.T) {
 	if provider == "" {
 		t.Skip("set RT_AI_TEST=claude or RT_AI_TEST=codex to run")
 	}
-	model := map[string]string{"claude": "haiku"}[provider]
+	model := map[string]string{"claude": "haiku", "antigravity": "gemini-3.8-flash-low"}[provider]
 	a := NewApp()
 	var mu sync.Mutex
 	var lines, used []string
@@ -176,14 +176,14 @@ func TestAIDoesNotTypeIntoForegroundApp(t *testing.T) {
 		all := strings.Join(lines, "\n")
 		tools := append([]string(nil), used...)
 		mu.Unlock()
-		if strings.Contains(all, `"type":"result"`) || strings.Contains(all, `"turn.completed"`) {
+		if strings.Contains(all, `"type":"result"`) || strings.Contains(all, `"turn.completed"`) || strings.Contains(all, `"agy.done"`) {
 			t.Logf("tools used: %v", tools)
 			for _, u := range tools {
 				if u == "send_keys" || u == "run_command" {
 					t.Fatalf("AI typed into the user's screen (%s). Tools: %v", u, tools)
 				}
 			}
-			if !strings.Contains(all, "/home/dev/app") {
+			if !strings.Contains(all, "/home/dev/app") && !strings.Contains(agyText(all), "/home/dev/app") {
 				t.Fatalf("answer lacks the directory:\n%s", all)
 			}
 			return

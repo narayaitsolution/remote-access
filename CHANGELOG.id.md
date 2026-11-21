@@ -3,6 +3,13 @@
 Fitur baru menaikkan angka utama (mis. 10.0 → 11.0); perbaikan dan perubahan kecil menaikkan angka di belakang titik (mis. 8.1 → 8.2).
 Bagian setiap versi di file ini ditampilkan di jendela Informasi aplikasi dan di jendela update.
 
+## 12.0
+- **Google Antigravity di AI Sidebar**: chat dan Mode Agen kini bisa memakai Gemini (dan model lain yang tersedia di akun Google Anda) lewat Antigravity CLI (`agy`) yang terpasang di komputer, tanpa API key. Alat bawaan Antigravity yang bekerja di komputer lokal ditolak; AI hanya bekerja di server lewat alat Remote Terminal, dengan izin Anda.
+- **Shortcut baru**: split vertikal `Ctrl+Shift+W`, split horizontal `Ctrl+Shift+E`, tutup split/tab `Ctrl+Shift+Q` (ada konfirmasi sebelum menutup tab). Shortcut bawaan lama di `config.toml` dipindahkan otomatis; shortcut yang Anda ubah sendiri tidak disentuh.
+- **Perbaikan kode mouse yang muncul di layar**: saat mouse digerakkan di opencode atau shell, kadang muncul teks seperti `35;96;40M…`. Input kini dikirim berurutan dan tidak lagi saling menimpa.
+- Daftar donatur selalu diambil dari GitHub saat tab Donasi dibuka dan tidak disimpan di aplikasi.
+- README dibuat lebih singkat.
+
 ## 11.1
 - **Pilihan bahasa**: aplikasi kini tersedia dalam Bahasa Indonesia dan English. Bawaannya mengikuti bahasa Windows; bisa diganti di jendela Informasi (ⓘ → *Bahasa*). Bahasa baru dipakai setelah aplikasi dibuka ulang, dan aplikasi menawarkan untuk membuka ulang saat itu juga.
 - **Donasi**: tab baru *♥ Donasi* di jendela Informasi berisi tautan donasi (Lynk.id) dan daftar donatur sebagai ucapan terima kasih. Daftar donatur diambil dari GitHub, jadi bisa bertambah tanpa menunggu versi baru.

@@ -38,6 +38,8 @@ interface Chat {
   terminals: Pane[];
   usage: Usage;
   lastCost: number;
+  /** Antigravity: the reply message chunks are being appended to. */
+  stream?: Extract<Item, { kind: 'text' }> | null;
 }
 
 interface RateWindow { utilization: number; resetsAt: number }
@@ -370,6 +372,7 @@ export class AIPanel {
     try { ev = JSON.parse(line); } catch { return; }
     if (c.provider === 'claude') this.onClaude(c, ev);
     else if (c.provider === 'codex') this.onCodex(c, ev);
+    else if (c.provider === 'antigravity') this.onAntigravity(c, ev);
     else this.onOpenAI(c, ev);
     if (c === this.chat()) this.render();
   }
@@ -416,6 +419,39 @@ export class AIPanel {
         break;
       }
       case 'oa.done': this.setBusy(c, false); break;
+    }
+  }
+
+  /** Antigravity (agy over ACP): the reply streams in small chunks. */
+  private onAntigravity(c: Chat, ev: any) {
+    switch (ev.type) {
+      case 'agy.update': {
+        const u = ev.update || {};
+        if (u.sessionUpdate === 'agent_message_chunk' && u.content?.type === 'text' && u.content.text) {
+          const last = c.items[c.items.length - 1];
+          if (last && last.kind === 'text' && last === c.stream) last.text += u.content.text;
+          else { c.stream = { kind: 'text', text: u.content.text }; c.items.push(c.stream); }
+        } else if (u.sessionUpdate === 'tool_call') {
+          c.stream = null; // text after a tool call is a new message
+        }
+        break;
+      }
+      case 'agy.blocked':
+        c.stream = null;
+        this.note(c, t('Antigravity mencoba memakai alat di komputer lokal (bukan server) dan ditolak: {0}', ev.title), true);
+        break;
+      case 'agy.done': {
+        c.stream = null;
+        const u = ev.result?.usage || {};
+        c.usage.input += Math.max(0, (u.inputTokens || 0) - (u.cachedReadTokens || 0));
+        c.usage.cached += u.cachedReadTokens || 0;
+        c.usage.output += (u.outputTokens || 0) + (u.thoughtTokens || 0);
+        c.usage.turns++;
+        if (ev.result?.stopReason === 'refusal') this.note(c, t('Model menolak menjawab permintaan ini.'), true);
+        else if (ev.result?.stopReason === 'max_tokens' || ev.result?.stopReason === 'max_turn_requests') this.note(c, t('Jawaban terpotong karena batas model.'), true);
+        this.setBusy(c, false);
+        break;
+      }
     }
   }
 
@@ -697,6 +733,8 @@ export class AIPanel {
       parts.push(l5 || l7 ? [l5, l7].filter(Boolean).join(' · ') : `<span class="muted">${t('Limit langganan muncul setelah pesan pertama')}</span>`);
     } else if (this.provider() === 'codex') {
       parts.push(`<span class="muted">${t('Codex tidak melaporkan sisa limit')}</span>`);
+    } else if (this.provider() === 'antigravity') {
+      parts.push(`<span class="muted">${t('Antigravity memakai kuota akun Google Anda')}</span>`);
     } else {
       parts.push(`<span class="muted">${t('Provider API: biaya/limit dilihat di dashboard penyedia')}</span>`);
     }

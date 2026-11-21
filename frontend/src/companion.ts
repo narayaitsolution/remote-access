@@ -31,7 +31,8 @@ function setStatus(s: CompanionStatus, err = '') {
 }
 
 async function loadProviders(force = false): Promise<ProviderInfo[]> {
-  if (!providers || force) providers = (await AIProviders()) as unknown as ProviderInfo[];
+  // Antigravity runs as an agent (ACP) only, not for one-shot suggestions.
+  if (!providers || force) providers = ((await AIProviders()) as unknown as ProviderInfo[]).filter(p => p.id !== 'antigravity');
   return providers;
 }
 

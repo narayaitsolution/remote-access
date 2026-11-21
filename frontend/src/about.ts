@@ -22,7 +22,7 @@ const FEATURES: { title: [string, string]; items: [string, string, string][] }[]
     ['Daftar server dengan pencarian; tambah, edit, duplikat, hapus, urutkan', 'Server list with search; add, edit, duplicate, delete, reorder', '1.0'],
     ['Login dengan password (terenkripsi DPAPI Windows) atau SSH key (OpenSSH/PEM, dengan passphrase)', 'Log in with a password (encrypted with Windows DPAPI) or an SSH key (OpenSSH/PEM, with passphrase)', '3.0'],
     ['Sambung ulang otomatis saat jaringan putus, kembali ke sesi tmux yang sama', 'Automatic reconnect when the network drops, back into the same tmux session', '1.0'],
-    ['Tab dan split vertikal/horizontal; semua shortcut bisa diubah di config.toml', 'Tabs and vertical/horizontal splits; every shortcut can be changed in config.toml', '1.0'],
+    ['Tab dan split vertikal (Ctrl+Shift+W) / horizontal (Ctrl+Shift+E); semua shortcut bisa diubah di config.toml', 'Tabs and vertical (Ctrl+Shift+W) / horizontal (Ctrl+Shift+E) splits; every shortcut can be changed in config.toml', '1.0'],
     ['Drag untuk memblok dan otomatis copy, di terminal biasa maupun tmux; klik kanan untuk paste', 'Drag to select and copy automatically, in a plain shell or tmux; right-click to paste', '11.0'],
     ['Klik mouse sampai ke program di layar (tab dan tombol opencode, htop, panel tmux)', 'Mouse clicks reach programs on the screen (opencode tabs and buttons, htop, tmux panes)', '11.0'],
     ['Teks yang dipotong sesuai lebar layar disambung kembali saat disalin', 'Lines wrapped at the screen width are joined again when copied', '2.1'],
@@ -41,6 +41,7 @@ const FEATURES: { title: [string, string]; items: [string, string, string][] }[]
   ] },
   { title: ['AI Sidebar', 'AI Sidebar'], items: [
     ['Chat AI memakai Claude Code, Codex, atau API OpenAI-compatible (OpenRouter, Groq, DeepSeek, Ollama…)', 'AI chat with Claude Code, Codex, or an OpenAI-compatible API (OpenRouter, Groq, DeepSeek, Ollama…)', '4.0'],
+    ['Google Antigravity: Gemini lewat akun Google di komputer ini, tanpa API key', 'Google Antigravity: Gemini through the Google account on this PC, no API key', '12.0'],
     ['AI membaca layar, menjalankan perintah, membaca/menulis file — selalu dengan izin Anda', 'The AI reads the screen, runs commands, reads/writes files — always with your permission', '5.0'],
     ['Mode Agen: AI mengerjakan tugas langsung di layar sampai selesai (cari, edit, uji, perbaiki, lapor); tindakan berisiko tetap ditanyakan', 'Agent mode: the AI does a task on the screen until it is done (find, edit, test, fix, report); risky actions are still asked', '10.0'],
   ] },
@@ -93,6 +94,7 @@ function donateTab(): HTMLElement {
   GetDonors().then(d => {
     linksBox.replaceChildren(...d.links.map(l =>
       h('button', { class: 'btn primary donate-btn', onclick: () => BrowserOpenURL(l.url) }, '♥ ', t('Donasi lewat {0}', l.name))));
+    if (!d.online) { donors.replaceChildren(t('Daftar donatur tidak bisa dimuat.')); return; }
     if (!d.donors.length) { donors.replaceChildren(t('Belum ada donatur. Jadilah yang pertama!')); return; }
     donors.classList.remove('muted');
     donors.replaceChildren(...d.donors.map(x => h('div', { class: 'donor' },

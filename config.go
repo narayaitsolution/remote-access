@@ -40,6 +40,7 @@ type Settings struct {
 	CompanionProv    string            `toml:"ai_companion_provider" json:"companionProvider"` // "" = first usable provider
 	CompanionModel   string            `toml:"ai_companion_model" json:"companionModel"`       // "" = provider default (Claude: haiku)
 	Keys             map[string]string `toml:"keys" json:"keys"`
+	KeysVersion      int               `toml:"keys_version" json:"keysVersion"` // bumped when default shortcuts change
 }
 
 // Profile is one saved server ([[profile]] in config.toml).
@@ -100,9 +101,9 @@ type Config struct {
 func defaultKeys() map[string]string {
 	return map[string]string{
 		"new_tab":          "Ctrl+Shift+T",
-		"split_vertical":   "Ctrl+Shift+E",
-		"split_horizontal": "Ctrl+Shift+O",
-		"close_pane":       "Ctrl+Shift+W",
+		"split_vertical":   "Ctrl+Shift+W",
+		"split_horizontal": "Ctrl+Shift+E",
+		"close_pane":       "Ctrl+Shift+Q",
 		"next_tab":         "Ctrl+Tab",
 		"prev_tab":         "Ctrl+Shift+Tab",
 		"focus_left":       "Alt+Left",
@@ -115,6 +116,31 @@ func defaultKeys() map[string]string {
 		"fullscreen":       "F11",
 		"toggle_ai":        "Ctrl+Shift+A",
 	}
+}
+
+// keysVersion is the current default shortcut layout. Version 1 (v11.2) moved
+// split vertical to Ctrl+Shift+W, split horizontal to Ctrl+Shift+E and close
+// to Ctrl+Shift+Q.
+const keysVersion = 1
+
+// migrateKeys moves shortcuts still on an older default to the new one, once;
+// shortcuts the user changed themselves are left alone.
+func migrateKeys(s *Settings) {
+	if s.KeysVersion >= keysVersion {
+		return
+	}
+	old := map[string]string{
+		"split_vertical":   "Ctrl+Shift+E",
+		"split_horizontal": "Ctrl+Shift+O",
+		"close_pane":       "Ctrl+Shift+W",
+	}
+	def := defaultKeys()
+	for k, v := range old {
+		if strings.EqualFold(s.Keys[k], v) {
+			s.Keys[k] = def[k]
+		}
+	}
+	s.KeysVersion = keysVersion
 }
 
 func defaultConfig() Config {
@@ -133,6 +159,7 @@ func defaultConfig() Config {
 		AIModels:         map[string]string{},
 		EditorTabSize:    4,
 		Keys:             defaultKeys(),
+		KeysVersion:      keysVersion,
 	}}
 }
 
@@ -180,6 +207,7 @@ func loadConfig(path string) (Config, error) {
 			cfg.Settings.Keys[k] = v
 		}
 	}
+	migrateKeys(&cfg.Settings)
 	for i := range cfg.Profiles {
 		if cfg.Profiles[i].ID == "" {
 			cfg.Profiles[i].ID = newID()

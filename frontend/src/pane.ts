@@ -141,9 +141,9 @@ export class Pane {
     term.onData(d => this.input(d));
     term.onBinary(d => {
       if (!this.connected) return;
-      const b = new Uint8Array(d.length);
-      for (let i = 0; i < d.length; i++) b[i] = d.charCodeAt(i) & 0xff;
-      WriteBinary(this.sessionId, btoa(String.fromCharCode(...b)));
+      let b = '';
+      for (let i = 0; i < d.length; i++) b += String.fromCharCode(d.charCodeAt(i) & 0xff);
+      this.out(true, b);
     });
     term.onResize(({ cols, rows }) => { if (this.sessionId) Resize(this.sessionId, cols, rows); });
     term.attachCustomKeyEventHandler(e => {
@@ -160,6 +160,7 @@ export class Pane {
     this.unsubs = [];
     if (this.sessionId) Close(this.sessionId);
     this.sessionId = '';
+    this.outQ = [];
     this.term?.dispose();
     this.term = null;
     this.fit = null;
@@ -203,7 +204,7 @@ export class Pane {
 
   private input(d: string) {
     if (this.state === 'connected') {
-      Write(this.sessionId, d);
+      this.out(false, d);
       if (d.includes('\r')) hooks.enterPressed(this);
       return;
     }
@@ -301,13 +302,13 @@ export class Pane {
       case 'exited':
         this.badge.classList.add('hidden');
         this.setState('ended');
-        this.status(t('[Sesi berakhir — Enter: sambung ulang · Ctrl+Shift+W: tutup]'));
+        this.status(t('[Sesi berakhir — Enter: sambung ulang · Ctrl+Shift+Q: tutup]'));
         break;
       case 'error':
         this.badge.classList.add('hidden');
         this.setState('ended');
         this.status(st.msg, '31');
-        this.status(t('[Enter: sambung ulang · Ctrl+Shift+W: tutup]'));
+        this.status(t('[Enter: sambung ulang · Ctrl+Shift+Q: tutup]'));
         break;
     }
   }
@@ -326,13 +327,40 @@ export class Pane {
         this.status(t('Gagal: ') + errMsg(e), '31');
       }
       this.setState('ended');
-      this.status(t('[Enter: coba lagi · Ctrl+Shift+W: tutup]'));
+      this.status(t('[Enter: coba lagi · Ctrl+Shift+Q: tutup]'));
     }
   }
 
   /** Type text into the shell (e.g. "cd" from the sidebar). */
   send(text: string) {
-    if (this.connected) Write(this.sessionId, text);
+    if (this.connected) this.out(false, text);
+  }
+
+  // Input goes out strictly in order, one call at a time. Wails runs each call
+  // in its own goroutine, so firing one Write per mouse-motion report let them
+  // race and arrive reordered; input that piles up meanwhile is sent together.
+  private outQ: { bin: boolean; data: string }[] = [];
+  private outBusy = false;
+
+  private out(bin: boolean, data: string) {
+    const last = this.outQ[this.outQ.length - 1];
+    if (last && last.bin === bin) last.data += data;
+    else this.outQ.push({ bin, data });
+    if (!this.outBusy) void this.flushOut();
+  }
+
+  private async flushOut() {
+    this.outBusy = true;
+    try {
+      while (this.outQ.length) {
+        const { bin, data } = this.outQ.shift()!;
+        const id = this.sessionId;
+        if (!id) continue;
+        try { await (bin ? WriteBinary(id, btoa(data)) : Write(id, data)); } catch { /* session gone */ }
+      }
+    } finally {
+      this.outBusy = false;
+    }
   }
 
   dispose() {

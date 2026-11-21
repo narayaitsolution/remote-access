@@ -21,7 +21,7 @@ export interface Settings {
   language: string;
   aiAgentMode: boolean;
   companion: boolean; companionProvider: string; companionModel: string;
-  keys: Record<string, string>;
+  keys: Record<string, string>; keysVersion: number;
 }
 
 export const store = {

@@ -133,7 +133,7 @@ func TestAIAgentMode(t *testing.T) {
 		tools := append([]string(nil), used...)
 		final, fixed, verified := file, strings.Contains(file, "$name;"), checkedAfterEdit
 		mu.Unlock()
-		if strings.Contains(all, `"type":"result"`) || strings.Contains(all, `"turn.completed"`) {
+		if strings.Contains(all, `"type":"result"`) || strings.Contains(all, `"turn.completed"`) || strings.Contains(all, `"agy.done"`) {
 			t.Logf("tools used: %v", tools)
 			for _, u := range tools {
 				if u == "send_keys" {

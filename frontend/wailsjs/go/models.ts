@@ -135,6 +135,7 @@ export namespace main {
 	    companionProvider: string;
 	    companionModel: string;
 	    keys: Record<string, string>;
+	    keysVersion: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new Settings(source);
@@ -166,6 +167,7 @@ export namespace main {
 	        this.companionProvider = source["companionProvider"];
 	        this.companionModel = source["companionModel"];
 	        this.keys = source["keys"];
+	        this.keysVersion = source["keysVersion"];
 	    }
 	}
 	export class AppState {
@@ -343,6 +345,7 @@ export namespace main {
 	export class DonorInfo {
 	    links: DonateLink[];
 	    donors: Donor[];
+	    online: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new DonorInfo(source);
@@ -352,6 +355,7 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.links = this.convertValues(source["links"], DonateLink);
 	        this.donors = this.convertValues(source["donors"], Donor);
+	        this.online = source["online"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

@@ -52,6 +52,7 @@ type Session struct {
 	client    *ssh.Client
 	shell     *ssh.Session
 	stdin     io.WriteCloser
+	writeMu   sync.Mutex // one stdin.Write at a time (see write)
 	stopKA    chan struct{}
 	cols      int
 	rows      int
@@ -341,7 +342,13 @@ func (s *Session) write(data []byte) {
 	if stdin == nil || state != stateConnected {
 		return // typing while disconnected is dropped on purpose
 	}
+	// Wails runs every frontend call in its own goroutine, and x/crypto/ssh
+	// channel writes share one packet buffer, so concurrent writes (a fast
+	// mouse-motion flood) overwrote each other's bytes and leaked mouse
+	// reports as text ("35;96;40M…"). Serialize them.
+	s.writeMu.Lock()
 	stdin.Write(data)
+	s.writeMu.Unlock()
 }
 
 func (s *Session) resize(cols, rows int) {

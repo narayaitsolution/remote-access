@@ -7,7 +7,7 @@ import { icons } from './icons';
 import { Pane } from './pane';
 import { hooks, saveSettingsSoon, store } from './state';
 import type { Sidebar } from './sidebar';
-import { h, isModalOpen } from './ui';
+import { confirmDialog, h, isModalOpen } from './ui';
 import { t } from './i18n';
 
 type Node = Leaf | Split;
@@ -200,10 +200,17 @@ export class Layout {
     this.focusPane(pane);
   }
 
-  async closePane(p: Pane) {
+  async closePane(p: Pane, confirmTab = false) {
     const tab = this.tabs.find(t => t.panes().includes(p));
     if (!tab) return;
-    if (tab.root.kind === 'leaf') { this.closeTab(tab); return; }
+    if (tab.root.kind === 'leaf') {
+      // The last pane closes the whole tab: ask first when done by shortcut
+      // (an empty server picker closes straight away).
+      if (confirmTab && p.state !== 'picker' &&
+        !(await confirmDialog(t('Tutup tab'), t('Tutup tab "{0}"?', p.title), t('Tutup'), true))) return;
+      this.closeTab(tab);
+      return;
+    }
     if (!(await p.canClose())) return;
     let sibling: Node | null = null;
     const remove = (n: Node): Node => {
@@ -300,7 +307,7 @@ export class Layout {
     if (is('new_tab')) this.newTab();
     else if (is('split_vertical')) this.split('row');
     else if (is('split_horizontal')) this.split('col');
-    else if (is('close_pane')) this.closePane(p);
+    else if (is('close_pane')) this.closePane(p, true);
     else if (is('next_tab')) this.cycleTab(1);
     else if (is('prev_tab')) this.cycleTab(-1);
     else if (is('focus_left')) this.focusDir(-1, 0);

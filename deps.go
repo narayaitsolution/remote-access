@@ -62,6 +62,9 @@ func depSpecs() []depSpec {
 			manual: "https://docs.anthropic.com/claude-code", check: func() (bool, string) { return lookPath("claude") }},
 		{id: "codex", name: "Codex CLI", purpose: L("Asisten AI: Codex", "AI assistant: Codex"), wingetID: "OpenAI.Codex", needsLogin: true,
 			manual: "https://github.com/openai/codex", check: func() (bool, string) { return lookPath("codex") }},
+		{id: "antigravity", name: "Google Antigravity CLI (agy)", purpose: L("Asisten AI: Gemini lewat akun Google", "AI assistant: Gemini with your Google account"), needsLogin: true,
+			manual: L("Pasang Antigravity dari https://antigravity.google lalu login dengan akun Google", "Install Antigravity from https://antigravity.google and sign in with your Google account"),
+			check:  func() (bool, string) { p, err := agyPath(); return err == nil, p }},
 		{id: "office", name: "Microsoft Office / LibreOffice", purpose: L("Membuka & mengedit Word, Excel, PowerPoint", "Open & edit Word, Excel, PowerPoint"),
 			wingetID: "TheDocumentFoundation.LibreOffice", manual: L("Pasang Microsoft Office atau https://www.libreoffice.org", "Install Microsoft Office or https://www.libreoffice.org"),
 			check: officeCheck},
@@ -146,6 +149,12 @@ func (a *App) LoginAI(provider string) error {
 		args = []string{"claude"}
 	case "codex":
 		args = []string{"codex", "login"}
+	case "antigravity":
+		p, err := agyPath()
+		if err != nil {
+			return err
+		}
+		args = []string{p}
 	default:
 		return errors.New(L("provider tidak dikenal", "unknown provider"))
 	}
